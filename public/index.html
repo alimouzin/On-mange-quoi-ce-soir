@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>On mange quoi ce soir ?</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>🍽️ On mange quoi ce soir ?</h1>
+    <nav>
+      <button data-tab="choose" class="active">Choisir</button>
+      <button data-tab="meals">Repas</button>
+      <button data-tab="shopping">Courses <span id="cart-count" hidden></span></button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="tab-choose">
+      <label>Pour quel moment ?
+        <select id="slot-select"></select>
+      </label>
+      <div id="suggestion"></div>
+    </section>
+
+    <section id="tab-meals" hidden>
+      <div class="row">
+        <button id="add-meal" class="primary">+ Nouveau repas</button>
+        <input id="filter" type="search" placeholder="Rechercher…">
+      </div>
+      <ul id="meal-list" class="cards"></ul>
+    </section>
+
+    <section id="tab-shopping" hidden>
+      <p class="hint">Coche les repas prévus, la liste de courses se construit toute seule.</p>
+      <ul id="plan-list" class="chips"></ul>
+      <h2>Liste de courses</h2>
+      <ul id="shopping-list" class="shopping"></ul>
+      <div class="row">
+        <button id="copy-list">Copier la liste</button>
+        <button id="clear-checked">Tout décocher</button>
+        <button id="clear-plan">Vider les repas prévus</button>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="meal-dialog">
+    <form method="dialog" id="meal-form">
+      <h2 id="dialog-title">Repas</h2>
+      <label>Nom <input name="name" required maxlength="120"></label>
+      <fieldset>
+        <legend>Moments adaptés</legend>
+        <div id="slot-checks" class="checks"></div>
+      </fieldset>
+      <fieldset>
+        <legend>Ingrédients</legend>
+        <div id="ingredients"></div>
+        <button type="button" id="add-ingredient">+ Ingrédient</button>
+      </fieldset>
+      <label>Dernière fois mangé <input type="date" name="lastEaten"></label>
+      <label>Notes <textarea name="notes" rows="2"></textarea></label>
+      <div class="row">
+        <button type="submit" class="primary">Enregistrer</button>
+        <button type="button" id="cancel">Annuler</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>

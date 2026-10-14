@@ -1,0 +1,12 @@
+{
+  "name": "on-mange-quoi-ce-soir",
+  "version": "1.0.0",
+  "description": "Site privé pour choisir quoi manger et préparer la liste de courses",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": { "node": ">=20" }
+}
