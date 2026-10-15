@@ -3,7 +3,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID, timingSafeEqual, createHash } from 'node:crypto';
-import { SLOTS, currentSlot, suggest, buildShoppingList, sanitizeMeal } from './lib/logic.js';
+import { SLOTS, KINDS, currentSlot, suggest, buildShoppingList, sanitizeMeal } from './lib/logic.js';
 import { Store } from './lib/store.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -56,7 +56,7 @@ async function api(req, res, url) {
   const [resource, id, action] = parts;
   const m = req.method;
 
-  if (resource === 'slots' && m === 'GET') return send(res, 200, { slots: SLOTS, current: currentSlot() });
+  if (resource === 'slots' && m === 'GET') return send(res, 200, { slots: SLOTS, kinds: KINDS, current: currentSlot() });
 
   if (resource === 'meals') {
     if (!id && m === 'GET') return send(res, 200, { meals });
@@ -89,8 +89,9 @@ async function api(req, res, url) {
 
   if (resource === 'suggest' && m === 'GET') {
     const slot = url.searchParams.get('slot') || currentSlot();
-    const exclude = (url.searchParams.get('exclude') || '').split(',').filter(Boolean);
-    return send(res, 200, { slot, ...suggest(meals, slot, { excludeIds: exclude }) });
+    const excludeKeys = (url.searchParams.get('exclude') || '').split(',').filter(Boolean);
+    const keepId = url.searchParams.get('keep') || null;
+    return send(res, 200, { slot, ...suggest(meals, slot, { excludeKeys, keepId }) });
   }
 
   if (resource === 'plan') {

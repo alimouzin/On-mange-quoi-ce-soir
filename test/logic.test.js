@@ -11,18 +11,18 @@ const meals = [
 
 test('suggère le repas le plus ancien parmi ceux du créneau', () => {
   const r = suggest(meals, 'lun-soir', { now, random: () => 0.5 });
-  assert.equal(r.main.meal.id, 'b');
-  assert.equal(r.alternatives[0].meal.id, 'a');
+  assert.equal(r.main.meals[0].id, 'b');
+  assert.equal(r.alternatives[0].meals[0].id, 'a');
 });
 
 test('ignore les repas hors créneau et les exclus', () => {
   assert.equal(suggest(meals, 'mar-soir', { now }).main, null);
-  assert.equal(suggest(meals, 'lun-soir', { now, excludeIds: ['b', 'a'] }).main, null);
+  assert.equal(suggest(meals, 'lun-soir', { now, excludeKeys: ['b', 'a'] }).main, null);
 });
 
 test('un repas jamais mangé passe en premier', () => {
   const r = suggest([...meals, { id: 'd', name: 'Neuf', slots: ['lun-soir'], lastEaten: null, ingredients: [] }], 'lun-soir', { now, random: () => 0.5 });
-  assert.equal(r.main.meal.id, 'd');
+  assert.equal(r.main.meals[0].id, 'd');
 });
 
 test('fusionne les ingrédients et additionne les quantités', () => {
@@ -46,4 +46,34 @@ test('créneau courant : midi le week-end avant 15h', () => {
   assert.equal(currentSlot(new Date('2026-10-17T11:00:00')), 'sam-midi');
   assert.equal(currentSlot(new Date('2026-10-17T18:00:00')), 'sam-soir');
   assert.equal(currentSlot(new Date('2026-10-14T11:00:00')), 'mer-soir');
+});
+
+test('mix & match : viande + accompagnement, avec exclusion et garde', () => {
+  const duo = [
+    { id: 'v1', name: 'Poulet', kind: 'viande', slots: ['mer-soir'], lastEaten: '2026-01-01', ingredients: [] },
+    { id: 'v2', name: 'Steak', kind: 'viande', slots: ['mer-soir'], lastEaten: '2026-10-10', ingredients: [] },
+    { id: 'a1', name: 'Riz', kind: 'accompagnement', slots: ['mer-soir'], lastEaten: '2026-02-01', ingredients: [] },
+    { id: 'a2', name: 'Frites', kind: 'accompagnement', slots: ['mer-soir', 'lun-soir'], lastEaten: '2026-10-11', ingredients: [] },
+  ];
+  const o = { now, random: () => 0.5 };
+  assert.equal(suggest(duo, 'mer-soir', o).main.key, 'v1+a1');
+  assert.equal(suggest(duo, 'mer-soir', { ...o, excludeKeys: ['v1+a1'] }).main.key, 'v2+a1');
+  const keep = suggest(duo, 'mer-soir', { ...o, excludeKeys: ['v1+a1', 'v2+a1'], keepId: 'a2' });
+  assert.equal(keep.main.key, 'v1+a2');
+  assert.ok(keep.alternatives.every((p) => p.meals.some((m) => m.id === 'a2')));
+  assert.equal(suggest(duo, 'lun-soir', o).main, null); // pas de viande pour ce créneau
+});
+
+test('un repas complet peut concurrencer un duo', () => {
+  const list = [
+    { id: 'c', name: 'Lasagnes', slots: ['mer-soir'], lastEaten: null, ingredients: [] },
+    { id: 'v', name: 'Poulet', kind: 'viande', slots: ['mer-soir'], lastEaten: '2026-10-13', ingredients: [] },
+    { id: 'a', name: 'Riz', kind: 'accompagnement', slots: ['mer-soir'], lastEaten: '2026-10-13', ingredients: [] },
+  ];
+  assert.equal(suggest(list, 'mer-soir', { now, random: () => 0.5 }).main.key, 'c');
+});
+
+test('sanitizeMeal : type par défaut et invalide', () => {
+  assert.equal(sanitizeMeal({ name: 'X', kind: 'viande' }).kind, 'viande');
+  assert.equal(sanitizeMeal({ name: 'X', kind: 'nimporte' }).kind, 'complet');
 });

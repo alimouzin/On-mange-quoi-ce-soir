@@ -15,8 +15,9 @@ async function api(path, method = 'GET', body) {
   return res.status === 204 ? null : res.json();
 }
 
-const state = { slots: [], meals: [], plan: [], editing: null, excluded: [], forced: null };
+const state = { slots: [], kinds: [], meals: [], plan: [], editing: null, excluded: [], forced: null, keep: null };
 const slotLabel = (id) => state.slots.find((s) => s.id === id)?.label || id;
+const kindOf = (m) => m.kind || 'complet';
 const today = () => new Date().toISOString().slice(0, 10);
 
 function agoText(dateStr) {
@@ -39,46 +40,58 @@ document.querySelectorAll('nav button').forEach((b) =>
 );
 
 // ---------- Choisir ----------
+const kindLabel = (id) => state.kinds.find((k) => k.id === id)?.label || 'Repas complet';
+const kindIcon = { complet: '🍽️', viande: '🥩', accompagnement: '🥗' };
+const names = (p) => p.meals.map((m) => m.name).join(' + ');
+
 async function loadSuggestion() {
   const slot = $('#slot-select').value;
-  const data = await api(`suggest?slot=${slot}&exclude=${state.excluded.join(',')}`);
-  const forced = state.forced && state.meals.find((x) => x.id === state.forced && x.slots.includes(slot));
+  const keep = state.keep ? `&keep=${state.keep}` : '';
+  const data = await api(`suggest?slot=${slot}&exclude=${state.excluded.join(',')}${keep}`);
+  const forced = state.forced && [data.main, ...data.alternatives].find((x) => x?.key === state.forced);
   if (forced) {
-    // Un repas choisi dans « Autres idées » passe en tête ; l'ancien principal reste proposé.
-    const rest = [data.main, ...data.alternatives].filter((x) => x && x.meal.id !== forced.id);
-    data.main = { meal: forced };
-    data.alternatives = rest.slice(0, 3);
+    // Une alternative choisie passe en tête ; l'ancienne proposition reste proposée.
+    data.alternatives = [data.main, ...data.alternatives].filter((x) => x && x.key !== forced.key).slice(0, 3);
+    data.main = forced;
   }
   const box = $('#suggestion');
   box.replaceChildren();
   if (!data.main) {
-    box.append(el('p', { className: 'empty' }, state.excluded.length
-      ? 'Plus d\'autres idées pour ce moment.' : `Aucun repas adapté à « ${slotLabel(slot)} ». Ajoute-en dans l'onglet Repas !`));
-    if (state.excluded.length) box.append(el('button', { onclick: () => { state.excluded = []; loadSuggestion(); } }, 'Recommencer'));
+    box.append(el('p', { className: 'empty' }, state.excluded.length || state.keep
+      ? "Plus d'autres idées pour ce moment."
+      : `Aucun repas adapté à « ${slotLabel(slot)} ». Ajoute-en dans l'onglet Repas ! (une viande et un accompagnement se combinent tout seuls)`));
+    if (state.excluded.length || state.keep) box.append(el('button', { onclick: () => reset(true) }, 'Recommencer'));
     return;
   }
-  const m = data.main.meal;
+  const p = data.main;
+  const duo = p.meals.length === 2;
   box.append(
     el('div', { className: 'big' },
       el('div', { className: 'meta' }, `Proposition pour ${slotLabel(slot).toLowerCase()}`),
-      el('h2', {}, m.name),
-      el('div', { className: 'meta' }, agoText(m.lastEaten)),
-      m.ingredients.length ? el('p', {}, m.ingredients.map((i) => (i.qty ? `${i.qty} ` : '') + i.name).join(', ')) : null,
+      p.meals.map((m) => el('div', { className: 'proposal-item' },
+        el('h2', {}, `${kindIcon[kindOf(m)]} ${m.name}`),
+        el('div', { className: 'meta' }, (duo ? kindLabel(kindOf(m)) + ' · ' : '') + agoText(m.lastEaten)),
+        m.ingredients.length ? el('div', { className: 'meta' }, m.ingredients.map((i) => (i.qty ? `${i.qty} ` : '') + i.name).join(', ')) : null)),
       el('div', { className: 'actions' },
-        el('button', { className: 'primary', onclick: async () => { await api(`meals/${m.id}/eaten`, 'POST', {}); state.excluded = []; state.forced = null; await refreshMeals(); loadSuggestion(); } }, '✅ On mange ça !'),
-        el('button', { onclick: () => { state.excluded.push(m.id); state.forced = null; loadSuggestion(); } }, '🎲 Autre idée'),
-        el('button', { onclick: async () => { await setPlanned(m.id, true); alert('Ajouté aux courses'); } }, '🛒 Ajouter aux courses'),
+        el('button', { className: 'primary', onclick: async () => { await Promise.all(p.meals.map((m) => api(`meals/${m.id}/eaten`, 'POST', {}))); reset(false); await refreshMeals(); loadSuggestion(); } }, '✅ On mange ça !'),
+        el('button', { onclick: () => { state.excluded.push(p.key); state.keep = null; state.forced = null; loadSuggestion(); } }, '🎲 Autre idée'),
+        duo ? p.meals.map((m) => el('button', { onclick: () => { state.excluded.push(p.key); state.keep = p.meals.find((x) => x.id !== m.id).id; state.forced = null; loadSuggestion(); } }, `🔄 Autre ${kindOf(m) === 'viande' ? 'viande' : 'accompagnement'}`)) : null,
+        el('button', { onclick: async () => { for (const m of p.meals) await setPlanned(m.id, true); alert('Ajouté aux courses'); } }, '🛒 Ajouter aux courses'),
       ),
     ),
   );
   if (data.alternatives.length) {
     box.append(el('div', { className: 'alts' }, el('h3', {}, 'Autres idées'),
-      data.alternatives.map((a) => el('button', { onclick: () => { state.forced = a.meal.id; loadSuggestion(); } },
-        `${a.meal.name} — ${agoText(a.meal.lastEaten)}`))));
+      data.alternatives.map((a) => el('button', { onclick: () => { state.forced = a.key; loadSuggestion(); } }, names(a)))));
   }
 }
 
-$('#slot-select').addEventListener('change', () => { state.excluded = []; state.forced = null; loadSuggestion(); });
+function reset(reload) {
+  state.excluded = []; state.keep = null; state.forced = null;
+  if (reload) loadSuggestion();
+}
+
+$('#slot-select').addEventListener('change', () => reset(true));
 
 // ---------- Repas ----------
 async function refreshMeals() {
@@ -91,12 +104,13 @@ function renderMeals() {
   const q = $('#filter').value.trim().toLowerCase();
   const list = $('#meal-list');
   list.replaceChildren();
-  const meals = state.meals.filter((m) => m.name.toLowerCase().includes(q)).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+  const kind = $('#kind-filter').value;
+  const meals = state.meals.filter((m) => m.name.toLowerCase().includes(q) && (!kind || kindOf(m) === kind)).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
   if (!meals.length) list.append(el('li', { className: 'empty' }, 'Aucun repas pour le moment.'));
   for (const m of meals) {
     list.append(el('li', {},
-      el('strong', {}, m.name),
-      el('div', { className: 'meta' }, agoText(m.lastEaten)),
+      el('strong', {}, `${kindIcon[kindOf(m)]} ${m.name}`),
+      el('div', { className: 'meta' }, `${kindLabel(kindOf(m))} · ${agoText(m.lastEaten)}`),
       el('div', { className: 'tags' }, m.slots.map((s) => el('span', {}, slotLabel(s)))),
       m.ingredients.length ? el('div', { className: 'meta' }, m.ingredients.map((i) => i.name).join(', ')) : null,
       el('div', { className: 'actions' },
@@ -108,6 +122,7 @@ function renderMeals() {
   }
 }
 $('#filter').addEventListener('input', renderMeals);
+$('#kind-filter').addEventListener('change', renderMeals);
 
 // ---------- Formulaire ----------
 const dialog = $('#meal-dialog');
@@ -125,6 +140,7 @@ function openDialog(meal) {
   state.editing = meal?.id || null;
   $('#dialog-title').textContent = meal ? 'Modifier le repas' : 'Nouveau repas';
   form.name.value = meal?.name || '';
+  form.kind.value = meal ? kindOf(meal) : 'complet';
   form.lastEaten.value = meal?.lastEaten || '';
   form.notes.value = meal?.notes || '';
   $('#slot-checks').replaceChildren(...state.slots.map((s) =>
@@ -141,6 +157,7 @@ form.addEventListener('submit', async (e) => {
   e.preventDefault();
   const payload = {
     name: form.name.value,
+    kind: form.kind.value,
     lastEaten: form.lastEaten.value,
     notes: form.notes.value,
     slots: [...document.querySelectorAll('#slot-checks input:checked')].map((i) => i.value),
@@ -211,8 +228,10 @@ $('#clear-plan').addEventListener('click', async () => {
 
 // ---------- Démarrage ----------
 (async () => {
-  const { slots, current } = await api('slots');
+  const { slots, kinds, current } = await api('slots');
   state.slots = slots;
+  state.kinds = kinds;
+  for (const sel of [form.kind, $('#kind-filter')]) sel.append(...kinds.map((k) => el('option', { value: k.id }, k.label)));
   $('#slot-select').replaceChildren(...slots.map((s) => el('option', { value: s.id, selected: s.id === current }, s.label)));
   await refreshMeals();
   loadSuggestion();

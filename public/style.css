@@ -45,3 +45,6 @@ fieldset { border:1px solid var(--line); border-radius:8px; margin:.8rem 0; }
 .ing-row input:first-child { flex:2; } .ing-row input:nth-child(2) { flex:1; }
 dialog { border:1px solid var(--line); border-radius:14px; background:var(--bg); color:var(--fg); width:min(560px,94vw); max-height:92vh; }
 #cart-count { background:var(--accent); color:#fff; border-radius:99px; padding:0 .45rem; font-size:.75rem; }
+
+.proposal-item + .proposal-item { margin-top:.6rem; padding-top:.6rem; border-top:1px dashed var(--line); }
+.row select { width:auto; }

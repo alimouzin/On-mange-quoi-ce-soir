@@ -4,10 +4,10 @@ Site privé pour garder une liste d'idées de repas, choisir quoi manger et pré
 
 ## Fonctionnalités
 
-- **Repas** : nom, ingrédients (avec quantités), date de dernière fois mangé, notes et moments adaptés
+- **Repas** : type (repas complet, viande ou accompagnement), nom, ingrédients (avec quantités), date de dernière fois mangé, notes et moments adaptés
   (tous les soirs + samedi midi + dimanche midi).
-- **Choisir** : propose un repas adapté au moment choisi (par défaut le prochain), en favorisant ceux
-  qu'on n'a pas mangés depuis longtemps ou jamais. « Autre idée », « On mange ça ! » (met à jour la date).
+- **Choisir** : propose un repas adapté au moment choisi (par défaut le prochain) : un repas complet ou un duo **viande + accompagnement** combiné automatiquement, en favorisant ceux
+  qu'on n'a pas mangés depuis longtemps ou jamais. « Autre idée », « Autre viande » / « Autre accompagnement » (on garde l'un et on change l'autre), « On mange ça ! » (met à jour la date).
 - **Courses** : on coche les repas prévus, la liste est fusionnée (quantités additionnées quand l'unité
   est la même), avec cases à cocher persistantes et bouton « Copier la liste ».
 

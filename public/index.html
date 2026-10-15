@@ -29,6 +29,7 @@
       <div class="row">
         <button id="add-meal" class="primary">+ Nouveau repas</button>
         <input id="filter" type="search" placeholder="Rechercher…">
+        <select id="kind-filter"><option value="">Tous les types</option></select>
       </div>
       <ul id="meal-list" class="cards"></ul>
     </section>
@@ -50,6 +51,9 @@
     <form method="dialog" id="meal-form">
       <h2 id="dialog-title">Repas</h2>
       <label>Nom <input name="name" required maxlength="120"></label>
+      <label>Type
+        <select name="kind"></select>
+      </label>
       <fieldset>
         <legend>Moments adaptés</legend>
         <div id="slot-checks" class="checks"></div>
