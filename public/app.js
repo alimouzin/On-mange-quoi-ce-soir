@@ -247,7 +247,7 @@ function createReel(box, items, selectedId, onChange) {
   box.dataset.count = n;
   if (!n) return { value: () => null, spin() {}, items };
   for (let c = 0; c < COPIES; c++)
-    items.forEach((it, i) => box.append(el('div', { className: 'reel-item', onclick: () => box.scrollTo({ top: (c * n + i) * ROW(), behavior: 'smooth' }) },
+    items.forEach((it, i) => box.append(el('div', { className: 'reel-item', onclick: () => { if (!box.dataset.moved) box.scrollTo({ top: (c * n + i) * ROW(), behavior: 'smooth' }); } },
       el('span', { className: 'ri-label' }, it.label), it.meta ? el('span', { className: 'ri-meta' }, it.meta) : null)));
   const index = () => Math.round(box.scrollTop / ROW());
   const value = () => items[((index() % n) + n) % n].id;
@@ -256,10 +256,48 @@ function createReel(box, items, selectedId, onChange) {
   box.onscroll = () => {
     clearTimeout(timer);
     timer = setTimeout(() => {
+      target = null;
+      if (dragging) return;
       const idx = index();
       if (idx < n || idx >= (COPIES - 1) * n) jump(2 * n + (((idx % n) + n) % n));
       onChange?.(value());
     }, 140);
+  };
+  // Souris : molette (un cran par défilement), glisser-déposer, flèches du clavier. Le tactile garde le défilement natif.
+  let target = null, dragging = false, lastWheel = 0;
+  const step = (dir) => { target = (target ?? index()) + dir; box.scrollTo({ top: target * ROW(), behavior: 'smooth' }); };
+  box.onwheel = (e) => {
+    e.preventDefault();
+    const now = performance.now();
+    if (!e.deltaY || now - lastWheel < 80) return;
+    lastWheel = now;
+    step(Math.sign(e.deltaY));
+  };
+  box.onkeydown = (e) => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    e.preventDefault();
+    step(e.key === 'ArrowDown' ? 1 : -1);
+  };
+  box.onpointerdown = (e) => {
+    if (e.pointerType !== 'mouse' || e.button !== 0) return;
+    dragging = true;
+    box.dataset.moved = '';
+    const y0 = e.clientY, top0 = box.scrollTop;
+    box.setPointerCapture(e.pointerId);
+    box.style.scrollSnapType = 'none';
+    box.classList.add('dragging');
+    box.onpointermove = (m) => {
+      if (Math.abs(m.clientY - y0) > 4) box.dataset.moved = '1';
+      box.scrollTop = top0 - (m.clientY - y0);
+    };
+    box.onpointerup = box.onpointercancel = () => {
+      dragging = false;
+      box.onpointermove = box.onpointerup = box.onpointercancel = null;
+      box.classList.remove('dragging');
+      const snapped = Math.round(box.scrollTop / ROW()) * ROW();
+      box.scrollTo({ top: snapped, behavior: 'smooth' });
+      setTimeout(() => { box.style.scrollSnapType = ''; }, 300);
+    };
   };
   const start = Math.max(0, items.findIndex((it) => it.id === selectedId));
   requestAnimationFrame(() => { jump(2 * n + start); onChange?.(value()); });
@@ -280,6 +318,7 @@ const planDialog = $('#plan-dialog');
 const planForm = $('#plan-form');
 const plan = { ctx: null, main: null, side: null };
 
+const fold = (str) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 const reelItem = (m) => ({ id: m.id, label: `${kindIcon[kindOf(m)]} ${m.name}`, meta: agoText(m.lastEaten) });
 
 function buildReels(keepMain, keepSide) {
@@ -288,10 +327,23 @@ function buildReels(keepMain, keepSide) {
   const pool = (kinds) => state.meals
     .filter((m) => kinds.includes(kindOf(m)) && (unlocked || (m.slots.includes(slot) && mealInSeason(m, date))))
     .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
-  const mains = pool(['complet', 'viande']);
-  const sides = pool(['accompagnement']);
-  $('#reel-note').textContent = !mains.length
-    ? 'Aucun plat prévu pour ce moment et cette saison. Débloque en bas pour voir tous les repas.'
+  // Recherche : une roulette sans aucun résultat garde sa liste complète
+  // (chercher « poulet » ne vide pas les accompagnements).
+  const q = fold($('#reel-search').value.trim());
+  const matches = (list) => (q ? list.filter((m) => fold(m.name).includes(q)) : list);
+  const narrow = (list) => (matches(list).length ? matches(list) : list);
+  const mains = narrow(pool(['complet', 'viande']));
+  const sides = narrow(pool(['accompagnement']));
+  const found = matches(pool(['complet', 'viande'])).length + matches(pool(['accompagnement'])).length;
+  let hidden = 0;
+  if (q && !found && !unlocked) {
+    const all = state.meals.filter((m) => matches([m]).length);
+    hidden = all.length;
+  }
+  $('#reel-note').textContent = hidden
+    ? `${hidden} repas correspondent à « ${$('#reel-search').value.trim()} » mais ne sont pas prévus pour ce moment ou cette saison. Coche « Débloquer » pour les voir.`
+    : q && !found ? `Aucun repas ne correspond à « ${$('#reel-search').value.trim()} ».`
+    : !mains.length ? 'Aucun plat prévu pour ce moment et cette saison. Débloque en bas pour voir tous les repas.'
     : 'Seuls les repas prévus pour ce moment et cette saison tournent. Un repas complet désactive l\'accompagnement.';
   plan.main = createReel($('#reel-main'), mains.map(reelItem), keepMain, syncSide);
   // Pas de « sans » : une viande doit toujours avoir son accompagnement.
@@ -312,6 +364,7 @@ function openPlanDialog({ date, slot, meals, entry = null }) {
   if (!state.meals.length) return toast("Ajoute d'abord des repas.");
   const label = state.slots.find((s) => s.id === slot)?.label.split(' ').pop();
   plan.ctx = { date, slot, entry };
+  $('#reel-search').value = '';
   $('#plan-when').textContent = `${fullDate(date)} · ${label}`;
   $('#plan-title').textContent = entry ? 'Repas planifié' : 'Planifier un repas';
   $('#plan-entry-actions').hidden = !entry;
@@ -327,6 +380,12 @@ async function afterPlanChange() {
   renderCalendar();
 }
 
+let searchTimer;
+$('#reel-search').addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => buildReels(plan.main.value(), plan.side.value()), 150);
+});
+$('#reel-search').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });
 $('#plan-unlock').addEventListener('change', () => buildReels(plan.main.value(), plan.side.value()));
 function spinWeighted() {
   const pick = (reel) => reel.spin(drawIndex(reel.items.map((it) => mealById(it.id)).filter(Boolean)));

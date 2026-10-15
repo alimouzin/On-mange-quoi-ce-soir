@@ -102,3 +102,6 @@ button.wide { width:100%; margin-top:.6rem; }
 .reel-empty { padding:1rem .5rem; text-align:center; color:var(--muted); font-size:.85rem; }
 .spins { display:flex; gap:.5rem; margin-top:.6rem; }
 .spins button { flex:1; }
+#reel-search { margin-bottom:.6rem; }
+.reel { cursor:grab; user-select:none; }
+.reel.dragging { cursor:grabbing; }
