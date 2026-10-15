@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { suggest, buildShoppingList, sanitizeMeal, currentSlot, sanitizePlanned, shoppingMealIds, slotsForDate, nextDateForSlot, localDate } from '../lib/logic.js';
+import { suggest, buildShoppingList, sanitizeMeal, currentSlot, sanitizePlanned, shoppingMealIds, mealsWithoutShopping, slotsForDate, nextDateForSlot, localDate } from '../lib/logic.js';
 
 const now = new Date('2026-10-14T12:00:00');
 const meals = [
@@ -102,4 +102,9 @@ test('courses : repas planifiés à venir ajoutés, passés ou mangés ignorés,
     { date: '2026-10-21', mealIds: ['c'] },
   ];
   assert.deepEqual(shoppingMealIds(['a', 'x'], planned, '2026-10-14'), ['a', 'c', 'x']);
+});
+
+test('repas sans ingrédient : listé « sans courses », pas dans les articles', () => {
+  assert.deepEqual(mealsWithoutShopping(meals, ['a', 'c', 'c']), ['Brunch']);
+  assert.equal(buildShoppingList(meals, ['c']).length, 0);
 });
