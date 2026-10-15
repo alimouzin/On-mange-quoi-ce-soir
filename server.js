@@ -3,7 +3,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID, timingSafeEqual, createHash } from 'node:crypto';
-import { SLOTS, KINDS, currentSlot, suggest, buildShoppingList, sanitizeMeal } from './lib/logic.js';
+import { SLOTS, KINDS, currentSlot, suggest, buildShoppingList, sanitizeMeal, sanitizePlanned, shoppingMealIds, localDate } from './lib/logic.js';
 import { Store } from './lib/store.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -46,8 +46,9 @@ async function readBody(req) {
 }
 
 const shopping = () => {
-  const items = buildShoppingList(store.data.meals, store.data.plan);
-  return { items: items.map((i) => ({ ...i, checked: store.data.checked.includes(i.key) })) };
+  const { meals, plan, planned, checked } = store.data;
+  const ids = shoppingMealIds(plan, planned, localDate());
+  return { items: buildShoppingList(meals, ids).map((i) => ({ ...i, checked: checked.includes(i.key) })) };
 };
 
 async function api(req, res, url) {
@@ -76,12 +77,14 @@ async function api(req, res, url) {
     if (!action && m === 'DELETE') {
       meals.splice(idx, 1);
       store.data.plan = store.data.plan.filter((p) => p !== id);
+      for (const p of store.data.planned) p.mealIds = p.mealIds.filter((x) => x !== id);
+      store.data.planned = store.data.planned.filter((p) => p.mealIds.length);
       await store.save();
       return send(res, 204);
     }
     if (action === 'eaten' && m === 'POST') {
       const { date } = await readBody(req);
-      meals[idx].lastEaten = /^\d{4}-\d{2}-\d{2}$/.test(date || '') ? date : new Date().toISOString().slice(0, 10);
+      meals[idx].lastEaten = /^\d{4}-\d{2}-\d{2}$/.test(date || '') ? date : localDate();
       await store.save();
       return send(res, 200, meals[idx]);
     }
@@ -92,6 +95,36 @@ async function api(req, res, url) {
     const excludeKeys = (url.searchParams.get('exclude') || '').split(',').filter(Boolean);
     const keepId = url.searchParams.get('keep') || null;
     return send(res, 200, { slot, ...suggest(meals, slot, { excludeKeys, keepId }) });
+  }
+
+  if (resource === 'planned') {
+    const { planned } = store.data;
+    if (!id && m === 'GET') return send(res, 200, { planned });
+    if (!id && m === 'POST') {
+      // Un seul repas par date + moment : le nouveau remplace l'ancien.
+      const entry = { id: randomUUID(), ...sanitizePlanned(await readBody(req), meals), done: false };
+      store.data.planned = planned.filter((p) => !(p.date === entry.date && p.slot === entry.slot));
+      store.data.planned.push(entry);
+      await store.save();
+      return send(res, 201, entry);
+    }
+    const entry = planned.find((p) => p.id === id);
+    if (!entry) return send(res, 404, { error: 'Repas planifié introuvable' });
+    if (!action && m === 'DELETE') {
+      store.data.planned = planned.filter((p) => p !== entry);
+      await store.save();
+      return send(res, 204);
+    }
+    if (action === 'eaten' && m === 'POST') {
+      // Marque le repas comme mangé à la date prévue.
+      entry.done = true;
+      for (const mid of entry.mealIds) {
+        const meal = meals.find((x) => x.id === mid);
+        if (meal && (!meal.lastEaten || meal.lastEaten < entry.date)) meal.lastEaten = entry.date;
+      }
+      await store.save();
+      return send(res, 200, entry);
+    }
   }
 
   if (resource === 'plan') {
@@ -141,7 +174,7 @@ http
       if (url.pathname.startsWith('/api/')) await api(req, res, url);
       else await serveStatic(res, url.pathname);
     } catch (e) {
-      const status = e.status || (e.message?.includes('obligatoire') ? 400 : 500);
+      const status = e.status || (/obligatoire|invalide|existe pas|au moins/.test(e.message) ? 400 : 500);
       if (status === 500) console.error(e);
       send(res, status, { error: status === 500 ? 'Erreur serveur' : e.message });
     }

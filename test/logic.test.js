@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { suggest, buildShoppingList, sanitizeMeal, currentSlot } from '../lib/logic.js';
+import { suggest, buildShoppingList, sanitizeMeal, currentSlot, sanitizePlanned, shoppingMealIds, slotsForDate, nextDateForSlot, localDate } from '../lib/logic.js';
 
 const now = new Date('2026-10-14T12:00:00');
 const meals = [
@@ -76,4 +76,30 @@ test('un repas complet peut concurrencer un duo', () => {
 test('sanitizeMeal : type par défaut et invalide', () => {
   assert.equal(sanitizeMeal({ name: 'X', kind: 'viande' }).kind, 'viande');
   assert.equal(sanitizeMeal({ name: 'X', kind: 'nimporte' }).kind, 'complet');
+});
+
+test('créneaux d\'une date et prochaine date d\'un créneau', () => {
+  assert.deepEqual(slotsForDate('2026-10-17').map((s) => s.id), ['sam-midi', 'sam-soir']); // samedi
+  assert.deepEqual(slotsForDate('2026-10-14').map((s) => s.id), ['mer-soir']);
+  assert.equal(nextDateForSlot('sam-midi', new Date('2026-10-14T10:00:00')), '2026-10-17');
+  assert.equal(nextDateForSlot('mer-soir', new Date('2026-10-14T10:00:00')), '2026-10-14');
+  assert.equal(localDate(new Date(2026, 0, 5)), '2026-01-05');
+});
+
+test('sanitizePlanned valide date, créneau et repas', () => {
+  const ok = sanitizePlanned({ date: '2026-10-17', slot: 'sam-midi', mealIds: ['a', 'a', 'zzz'] }, meals);
+  assert.deepEqual(ok, { date: '2026-10-17', slot: 'sam-midi', mealIds: ['a'] });
+  assert.throws(() => sanitizePlanned({ date: 'demain', slot: 'sam-midi', mealIds: ['a'] }, meals), /Date/);
+  assert.throws(() => sanitizePlanned({ date: '2026-10-14', slot: 'sam-midi', mealIds: ['a'] }, meals), /existe pas/);
+  assert.throws(() => sanitizePlanned({ date: '2026-10-17', slot: 'sam-midi', mealIds: ['zzz'] }, meals), /au moins/);
+});
+
+test('courses : repas planifiés à venir ajoutés, passés ou mangés ignorés, pas de doublon', () => {
+  const planned = [
+    { date: '2026-10-13', mealIds: ['old'] },
+    { date: '2026-10-14', mealIds: ['a'] },
+    { date: '2026-10-20', mealIds: ['b'], done: true },
+    { date: '2026-10-21', mealIds: ['c'] },
+  ];
+  assert.deepEqual(shoppingMealIds(['a', 'x'], planned, '2026-10-14'), ['a', 'c', 'x']);
 });

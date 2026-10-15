@@ -12,6 +12,7 @@
     <h1>🍽️ On mange quoi ce soir ?</h1>
     <nav>
       <button data-tab="choose" class="active">Choisir</button>
+      <button data-tab="calendar">Calendrier</button>
       <button data-tab="meals">Repas</button>
       <button data-tab="shopping">Courses <span id="cart-count" hidden></span></button>
     </nav>
@@ -25,6 +26,17 @@
       <div id="suggestion"></div>
     </section>
 
+    <section id="tab-calendar" hidden>
+      <div class="cal-head">
+        <button id="cal-prev" aria-label="Mois précédent">‹</button>
+        <h2 id="cal-title"></h2>
+        <button id="cal-next" aria-label="Mois suivant">›</button>
+        <button id="cal-today">Aujourd'hui</button>
+      </div>
+      <div id="cal-grid" class="cal-grid"></div>
+      <div id="cal-day"></div>
+    </section>
+
     <section id="tab-meals" hidden>
       <div class="row">
         <button id="add-meal" class="primary">+ Nouveau repas</button>
@@ -35,7 +47,8 @@
     </section>
 
     <section id="tab-shopping" hidden>
-      <p class="hint">Coche les repas prévus, la liste de courses se construit toute seule.</p>
+      <p class="hint" id="planned-hint"></p>
+      <h2>Autres repas à ajouter</h2>
       <ul id="plan-list" class="chips"></ul>
       <h2>Liste de courses</h2>
       <ul id="shopping-list" class="shopping"></ul>
@@ -71,6 +84,23 @@
       </div>
     </form>
   </dialog>
+
+  <dialog id="plan-dialog">
+    <form method="dialog" id="plan-form">
+      <h2 id="plan-title">Planifier un repas</h2>
+      <label>Date <input type="date" name="date" required></label>
+      <label>Moment <select name="slot"></select></label>
+      <label>Plat <select name="main"></select></label>
+      <label>Accompagnement <select name="side"></select></label>
+      <p class="hint">Il sera ajouté automatiquement à la liste de courses.</p>
+      <div class="row">
+        <button type="submit" class="primary">Planifier</button>
+        <button type="button" id="plan-cancel">Annuler</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" role="status" popover="manual"></div>
 
   <script src="app.js" type="module"></script>
 </body>

@@ -8,7 +8,7 @@ header { padding:1rem 1rem 0; max-width:760px; margin:auto; }
 h1 { margin:.2rem 0 .8rem; font-size:1.4rem; }
 h2 { font-size:1.1rem; }
 nav { display:flex; gap:.4rem; border-bottom:1px solid var(--line); }
-nav button { border:0; background:none; padding:.6rem .9rem; color:var(--muted); border-bottom:3px solid transparent; font-size:1rem; cursor:pointer; }
+nav button { border:0; background:none; padding:.6rem .6rem; white-space:nowrap; color:var(--muted); border-bottom:3px solid transparent; font-size:1rem; cursor:pointer; }
 nav button.active { color:var(--fg); border-color:var(--accent); font-weight:600; }
 main { max-width:760px; margin:auto; padding:1rem; }
 button, input, select, textarea { font:inherit; color:inherit; }
@@ -48,3 +48,21 @@ dialog { border:1px solid var(--line); border-radius:14px; background:var(--bg);
 
 .proposal-item + .proposal-item { margin-top:.6rem; padding-top:.6rem; border-top:1px dashed var(--line); }
 .row select { width:auto; }
+
+.cal-head { display:flex; align-items:center; gap:.5rem; margin-bottom:.6rem; }
+.cal-head h2 { flex:1; margin:0; text-align:center; text-transform:capitalize; }
+.cal-grid { display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); gap:4px; }
+.cal-dow { text-align:center; font-size:.75rem; color:var(--muted); padding:.2rem 0; }
+.cal-cell { aspect-ratio:1; min-height:44px; padding:.25rem; display:flex; flex-direction:column; align-items:center; justify-content:space-between; font-size:.9rem; font-variant-numeric:tabular-nums; }
+.cal-cell.today { border-color:var(--accent); font-weight:700; }
+.cal-cell.sel { background:var(--accent); border-color:var(--accent); color:var(--on-accent); }
+.dots { display:flex; gap:3px; min-height:7px; }
+.dots i { width:7px; height:7px; border-radius:50%; background:var(--accent); }
+.dots i.done { background:transparent; border:1.5px solid var(--muted); }
+.cal-cell.sel .dots i { background:var(--on-accent); }
+.cal-cell.sel .dots i.done { background:transparent; border-color:var(--on-accent); }
+#cal-day h3 { text-transform:none; margin:1rem 0 .4rem; }
+.day-slot { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:.7rem 1rem; margin:.5rem 0; }
+#plan-dialog form, #meal-dialog form { padding:.6rem; }
+#toast { position:fixed; inset:auto auto 1.2rem 50%; transform:translateX(-50%); margin:0; border:0; background:var(--fg); color:var(--bg); padding:.5rem 1rem; border-radius:99px; }
+#cal-day h3::first-letter { text-transform:uppercase; }
