@@ -362,13 +362,6 @@ function upcomingPlanned() {
   return state.planned.filter((p) => p.date >= today() && !p.done);
 }
 
-function renderNoShopping(names) {
-  const box = $('#no-shopping');
-  box.hidden = !names.length;
-  box.replaceChildren(el('h3', {}, 'Repas sans courses'), el('p', { className: 'hint' }, 'Aucun ingrédient renseigné : rien à acheter pour ces repas.'),
-    el('ul', {}, names.map((n) => el('li', {}, n))));
-}
-
 async function renderShopping() {
   const up = upcomingPlanned().length;
   $('#planned-hint').textContent = up
@@ -381,9 +374,8 @@ async function renderShopping() {
   }));
   if (!state.meals.length) plan.append(el('li', { className: 'empty' }, 'Ajoute d\'abord des repas.'));
 
-  const { items, noShopping } = await api('shopping');
+  const { items } = await api('shopping');
   lastItems = items;
-  renderNoShopping(noShopping);
   const ul = $('#shopping-list');
   ul.replaceChildren();
   if (!items.length) ul.append(el('li', { className: 'empty' }, 'Rien à acheter pour l\'instant.'));
@@ -395,7 +387,7 @@ async function renderShopping() {
     } });
     ul.append(el('li', { className: it.checked ? 'done' : '' }, cb,
       el('span', { className: 'label' }, el('span', { className: 'qty' }, it.qty ? it.qty + ' ' : ''), it.name,
-        el('div', { className: 'meta' }, it.meals.join(', ')))));
+        el('div', { className: 'meta' }, it.whole ? 'Repas entier, sans ingrédients' : it.meals.join(', ')))));
   }
 }
 

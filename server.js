@@ -3,7 +3,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID, timingSafeEqual, createHash } from 'node:crypto';
-import { SLOTS, KINDS, currentSlot, suggest, buildShoppingList, mealsWithoutShopping, sanitizeMeal, sanitizePlanned, shoppingMealIds, localDate } from './lib/logic.js';
+import { SLOTS, KINDS, currentSlot, suggest, buildShoppingList, sanitizeMeal, sanitizePlanned, shoppingMealIds, localDate } from './lib/logic.js';
 import { Store } from './lib/store.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -48,10 +48,7 @@ async function readBody(req) {
 const shopping = () => {
   const { meals, plan, planned, checked } = store.data;
   const ids = shoppingMealIds(plan, planned, localDate());
-  return {
-    items: buildShoppingList(meals, ids).map((i) => ({ ...i, checked: checked.includes(i.key) })),
-    noShopping: mealsWithoutShopping(meals, ids),
-  };
+  return { items: buildShoppingList(meals, ids).map((i) => ({ ...i, checked: checked.includes(i.key) })) };
 };
 
 async function api(req, res, url) {

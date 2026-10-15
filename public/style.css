@@ -76,6 +76,3 @@ dialog { border:1px solid var(--line); border-radius:14px; background:var(--bg);
 #plan-dialog form, #meal-dialog form { padding:.6rem; }
 #toast { position:fixed; inset:auto auto 1.2rem 50%; transform:translateX(-50%); margin:0; border:0; background:var(--fg); color:var(--bg); padding:.5rem 1rem; border-radius:99px; }
 #cal-day h3::first-letter { text-transform:uppercase; }
-.no-shopping { margin:1rem 0; padding:.2rem 1rem .6rem; border:1px dashed var(--line); border-radius:12px; }
-.no-shopping h3 { margin:.6rem 0 .2rem; }
-.no-shopping ul { margin:.3rem 0 0; padding-left:1.2rem; }
