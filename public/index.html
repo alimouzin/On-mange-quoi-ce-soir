@@ -28,13 +28,13 @@
 
     <section id="tab-calendar" hidden>
       <div class="cal-head">
-        <button id="cal-prev" aria-label="Mois précédent">‹</button>
-        <h2 id="cal-title"></h2>
-        <button id="cal-next" aria-label="Mois suivant">›</button>
+        <h2>Semaines</h2>
         <button id="cal-today">Aujourd'hui</button>
       </div>
-      <div id="cal-grid" class="cal-grid"></div>
-      <div id="cal-day"></div>
+      <div id="cal-scroll" class="cal-scroll" tabindex="0" aria-label="Calendrier des repas, défile horizontalement">
+        <div id="cal-strip" class="cal-strip"></div>
+      </div>
+      <p class="hint">Fais défiler vers la gauche ou la droite. Touche un moment pour planifier ou modifier.</p>
     </section>
 
     <section id="tab-meals" hidden>
@@ -93,8 +93,12 @@
       <label>Plat <select name="main"></select></label>
       <label>Accompagnement <select name="side"></select></label>
       <p class="hint">Il sera ajouté automatiquement à la liste de courses.</p>
+      <div class="row" id="plan-entry-actions" hidden>
+        <button type="button" id="plan-eaten">✅ Mangé</button>
+        <button type="button" id="plan-remove" class="danger">Retirer du calendrier</button>
+      </div>
       <div class="row">
-        <button type="submit" class="primary">Planifier</button>
+        <button type="submit" class="primary">Enregistrer</button>
         <button type="button" id="plan-cancel">Annuler</button>
       </div>
     </form>

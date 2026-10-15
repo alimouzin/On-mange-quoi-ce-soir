@@ -55,7 +55,7 @@ document.querySelectorAll('nav button').forEach((b) =>
   b.addEventListener('click', () => {
     document.querySelectorAll('nav button').forEach((x) => x.classList.toggle('active', x === b));
     for (const t of ['choose', 'calendar', 'meals', 'shopping']) $('#tab-' + t).hidden = t !== b.dataset.tab;
-    ({ choose: loadSuggestion, calendar: renderCalendar, meals: renderMeals, shopping: renderShopping })[b.dataset.tab]();
+    ({ choose: loadSuggestion, calendar: () => { renderCalendar(); }, meals: renderMeals, shopping: renderShopping })[b.dataset.tab]();
   }),
 );
 
@@ -197,58 +197,95 @@ form.addEventListener('submit', async (e) => {
 // ---------- Calendrier ----------
 const mealById = (id) => state.meals.find((m) => m.id === id);
 const entryNames = (e) => e.mealIds.map((id) => mealById(id)?.name).filter(Boolean).join(' + ');
+const CAL_WEEKS_BACK = 2, CAL_WEEKS_AHEAD = 10, CAL_STEP = 6;
+const cal = { from: -CAL_WEEKS_BACK, to: CAL_WEEKS_AHEAD, placed: false, busy: false };
+const scroller = $('#cal-scroll');
 
-function renderCalendar() {
-  const { y, m } = state.cal;
-  $('#cal-title').textContent = new Date(y, m, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-  const grid = $('#cal-grid');
-  grid.replaceChildren(...['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d) => el('div', { className: 'cal-dow' }, d)));
-  const first = new Date(y, m, 1);
-  const lead = (first.getDay() + 6) % 7; // lundi en premier
-  for (let i = 0; i < lead; i++) grid.append(el('div'));
-  const days = new Date(y, m + 1, 0).getDate();
-  const sel = state.cal.sel;
-  for (let d = 1; d <= days; d++) {
-    const date = `${y}-${pad(m + 1)}-${pad(d)}`;
-    const entries = state.planned.filter((p) => p.date === date);
-    const cls = ['cal-cell', date === today() ? 'today' : '', date === sel ? 'sel' : ''].join(' ').trim();
-    grid.append(el('button', { className: cls, type: 'button', 'aria-label': fullDate(date), onclick: () => { state.cal.sel = date; renderCalendar(); } },
-      el('span', {}, String(d)),
-      el('span', { className: 'dots' }, entries.map((e) => el('i', { className: e.done ? 'done' : '' })))));
-  }
-  renderDay();
+function mondayOfThisWeek() {
+  const d = new Date();
+  d.setHours(12, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d;
 }
+const shortDay = (d) => d.toLocaleDateString('fr-FR', { weekday: 'short' }).replace('.', '');
+const shortRange = (a, b) => {
+  const m = (d) => d.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '');
+  return a.getMonth() === b.getMonth() ? `${a.getDate()} – ${b.getDate()} ${m(b)}` : `${a.getDate()} ${m(a)} – ${b.getDate()} ${m(b)}`;
+};
 
-function renderDay() {
-  const box = $('#cal-day');
-  box.replaceChildren();
-  const date = state.cal.sel;
-  if (!date) { box.append(el('p', { className: 'hint' }, 'Touche un jour pour voir ou planifier ses repas.')); return; }
-  box.append(el('h3', {}, fullDate(date)));
+function dayColumn(d) {
+  const date = isoDate(d);
+  const weekend = d.getDay() === 0 || d.getDay() === 6;
+  const col = el('div', { className: ['cal-day', weekend ? 'weekend' : '', date === today() ? 'today' : '', date < today() ? 'past' : ''].join(' ').trim() },
+    el('div', { className: 'cal-day-head' },
+      el('span', { className: 'dow' }, shortDay(d)),
+      el('span', { className: 'num' }, String(d.getDate())),
+      d.getDate() === 1 ? el('span', { className: 'mon' }, d.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '')) : null));
   for (const slot of slotsForDate(date)) {
     const e = state.planned.find((p) => p.date === date && p.slot === slot.id);
-    const row = el('div', { className: 'day-slot' }, el('div', { className: 'meta' }, slot.label));
-    if (e) {
-      row.append(el('strong', {}, entryNames(e) || 'Repas supprimé'),
-        el('div', { className: 'actions' },
-          e.done ? el('span', { className: 'meta' }, '✅ Mangé') : el('button', { onclick: async () => { await api(`planned/${e.id}/eaten`, 'POST', {}); await refreshMeals(); renderCalendar(); } }, '✅ Mangé'),
-          el('button', { onclick: () => openPlanDialog({ date, slot: slot.id, meals: e.mealIds.map(mealById).filter(Boolean) }) }, 'Modifier'),
-          el('button', { className: 'danger', onclick: async () => { await api(`planned/${e.id}`, 'DELETE'); await refreshMeals(); renderCalendar(); } }, 'Retirer')));
-    } else {
-      row.append(el('div', { className: 'actions' }, el('button', { onclick: () => openPlanDialog({ date, slot: slot.id, meals: [] }) }, '+ Planifier')));
-    }
-    box.append(row);
+    const label = slot.id.endsWith('midi') ? 'Midi' : 'Soir';
+    col.append(e
+      ? el('button', { className: 'cal-slot filled' + (e.done ? ' done' : ''), type: 'button', onclick: () => openPlanDialog({ date, slot: slot.id, meals: e.mealIds.map(mealById).filter(Boolean), entry: e }) },
+        el('span', { className: 'slot-label' }, label + (e.done ? ' ✓' : '')), el('span', { className: 'slot-meal' }, entryNames(e) || 'Repas supprimé'))
+      : el('button', { className: 'cal-slot empty', type: 'button', onclick: () => openPlanDialog({ date, slot: slot.id, meals: [] }) },
+        el('span', { className: 'slot-label' }, label), el('span', { className: 'slot-meal' }, '+')));
   }
+  return col;
 }
 
-const shiftMonth = (n) => { const d = new Date(state.cal.y, state.cal.m + n, 1); state.cal.y = d.getFullYear(); state.cal.m = d.getMonth(); renderCalendar(); };
-$('#cal-prev').addEventListener('click', () => shiftMonth(-1));
-$('#cal-next').addEventListener('click', () => shiftMonth(1));
-$('#cal-today').addEventListener('click', () => { const n = new Date(); state.cal = { y: n.getFullYear(), m: n.getMonth(), sel: today() }; renderCalendar(); });
+function renderCalendar() {
+  const keep = scroller.scrollLeft;
+  const monday = mondayOfThisWeek();
+  const strip = $('#cal-strip');
+  strip.replaceChildren();
+  for (let w = cal.from; w <= cal.to; w++) {
+    const start = new Date(monday); start.setDate(start.getDate() + w * 7);
+    const end = new Date(start); end.setDate(end.getDate() + 6);
+    const week = el('section', { className: 'cal-week' + (w === 0 ? ' current' : '') },
+      el('h3', {}, w === 0 ? 'Cette semaine · ' : '', shortRange(start, end)));
+    const days = el('div', { className: 'cal-days' });
+    for (let i = 0; i < 7; i++) { const d = new Date(start); d.setDate(d.getDate() + i); days.append(dayColumn(d)); }
+    week.append(days);
+    strip.append(week);
+  }
+  scroller.scrollLeft = keep;
+  if (!cal.placed) { cal.placed = true; scrollToToday(false); }
+}
+
+function scrollToToday(smooth = true) {
+  const col = $('#cal-strip .cal-day.today');
+  if (!col) return;
+  const gutter = parseFloat(getComputedStyle(scroller).paddingLeft) || 0;
+  const delta = col.getBoundingClientRect().left - scroller.getBoundingClientRect().left - gutter;
+  // Un défilement animé sur une longue distance serait coupé par l'ajout de semaines : on saute.
+  const near = Math.abs(delta) < scroller.clientWidth * 3;
+  scroller.scrollTo({ left: scroller.scrollLeft + delta, behavior: smooth && near ? 'smooth' : 'auto' });
+}
+
+// Défilement continu : on ajoute des semaines quand on approche d'un bord.
+scroller.addEventListener('scroll', () => {
+  if (cal.busy) return;
+  const weekW = $('#cal-strip').children[1]?.offsetLeft - $('#cal-strip').children[0]?.offsetLeft || 1;
+  if (scroller.scrollLeft < weekW) {
+    cal.busy = true;
+    const keep = scroller.scrollLeft;
+    cal.from -= CAL_STEP;
+    renderCalendar();
+    scroller.scrollLeft = keep + weekW * CAL_STEP;
+    cal.busy = false;
+  } else if (scroller.scrollLeft + scroller.clientWidth > scroller.scrollWidth - weekW) {
+    cal.busy = true;
+    cal.to += CAL_STEP;
+    renderCalendar();
+    cal.busy = false;
+  }
+}, { passive: true });
+$('#cal-today').addEventListener('click', () => scrollToToday());
 
 // Planification d'un repas à une date
 const planDialog = $('#plan-dialog');
 const planForm = $('#plan-form');
+let editingEntry = null;
 
 function fillSlots(selected) {
   planForm.slot.replaceChildren(...slotsForDate(planForm.date.value).map((s) => el('option', { value: s.id, selected: s.id === selected }, s.label)));
@@ -270,26 +307,38 @@ function fillMeals(meals = null) {
   mealOptions(planForm.side, ['accompagnement'], (cur.find((m) => kindOf(m) === 'accompagnement') || {}).id, true);
 }
 
-function openPlanDialog({ date, slot, meals }) {
+function openPlanDialog({ date, slot, meals, entry = null }) {
   if (!state.meals.length) return toast("Ajoute d'abord des repas.");
+  editingEntry = entry;
+  $('#plan-title').textContent = entry ? 'Repas planifié' : 'Planifier un repas';
+  $('#plan-entry-actions').hidden = !entry;
+  $('#plan-eaten').hidden = !!entry?.done;
   planForm.date.value = date;
   fillSlots(slot);
   fillMeals(meals);
   planDialog.showModal();
 }
+
+async function afterPlanChange() {
+  planDialog.close();
+  await refreshMeals();
+  renderCalendar();
+}
+
 planForm.date.addEventListener('change', () => fillSlots());
 planForm.slot.addEventListener('change', () => fillMeals());
 $('#plan-cancel').addEventListener('click', () => planDialog.close());
+$('#plan-eaten').addEventListener('click', async () => { await api(`planned/${editingEntry.id}/eaten`, 'POST', {}); toast('Noté comme mangé'); afterPlanChange(); });
+$('#plan-remove').addEventListener('click', async () => { await api(`planned/${editingEntry.id}`, 'DELETE'); afterPlanChange(); });
 planForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   try {
-    const entry = await api('planned', 'POST', { date: planForm.date.value, slot: planForm.slot.value, mealIds: [planForm.main.value, planForm.side.value].filter(Boolean) });
-    planDialog.close();
-    await refreshMeals();
-    const d = parse(entry.date);
-    state.cal = { y: d.getFullYear(), m: d.getMonth(), sel: entry.date };
+    const body = { date: planForm.date.value, slot: planForm.slot.value, mealIds: [planForm.main.value, planForm.side.value].filter(Boolean) };
+    await api('planned', 'POST', body); // remplace l'éventuel repas du même créneau
+    const moved = editingEntry && (editingEntry.date !== body.date || editingEntry.slot !== body.slot);
+    if (moved) await api(`planned/${editingEntry.id}`, 'DELETE');
     toast('Planifié et ajouté aux courses');
-    if (!$('#tab-calendar').hidden) renderCalendar();
+    await afterPlanChange();
   } catch (err) { toast(err.message); }
 });
 

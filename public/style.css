@@ -1,6 +1,6 @@
-:root { --bg:#fbf7f2; --fg:#2b2622; --muted:#7a6f66; --card:#fff; --accent:#d9572b; --line:#e6ddd3; }
+:root { --bg:#fbf7f2; --fg:#2b2622; --muted:#7a6f66; --card:#fff; --accent:#d9572b; --line:#e6ddd3; --weekend:#f2e3cf; --weekend-line:#e3cfb2; }
 @media (prefers-color-scheme: dark) {
-  :root { --bg:#1d1a17; --fg:#f1ebe4; --muted:#a39889; --card:#292521; --accent:#f0764a; --line:#3a342e; }
+  :root { --bg:#1d1a17; --fg:#f1ebe4; --muted:#a39889; --card:#292521; --accent:#f0764a; --line:#3a342e; --weekend:#3a2e22; --weekend-line:#53402c; }
 }
 * { box-sizing: border-box; }
 body { margin:0; font:16px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--fg); }
@@ -49,20 +49,30 @@ dialog { border:1px solid var(--line); border-radius:14px; background:var(--bg);
 .proposal-item + .proposal-item { margin-top:.6rem; padding-top:.6rem; border-top:1px dashed var(--line); }
 .row select { width:auto; }
 
-.cal-head { display:flex; align-items:center; gap:.5rem; margin-bottom:.6rem; }
-.cal-head h2 { flex:1; margin:0; text-align:center; text-transform:capitalize; }
-.cal-grid { display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); gap:4px; }
-.cal-dow { text-align:center; font-size:.75rem; color:var(--muted); padding:.2rem 0; }
-.cal-cell { aspect-ratio:1; min-height:44px; padding:.25rem; display:flex; flex-direction:column; align-items:center; justify-content:space-between; font-size:.9rem; font-variant-numeric:tabular-nums; }
-.cal-cell.today { border-color:var(--accent); font-weight:700; }
-.cal-cell.sel { background:var(--accent); border-color:var(--accent); color:var(--on-accent); }
-.dots { display:flex; gap:3px; min-height:7px; }
-.dots i { width:7px; height:7px; border-radius:50%; background:var(--accent); }
-.dots i.done { background:transparent; border:1.5px solid var(--muted); }
-.cal-cell.sel .dots i { background:var(--on-accent); }
-.cal-cell.sel .dots i.done { background:transparent; border-color:var(--on-accent); }
-#cal-day h3 { text-transform:none; margin:1rem 0 .4rem; }
-.day-slot { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:.7rem 1rem; margin:.5rem 0; }
+.cal-head { display:flex; align-items:center; gap:.5rem; margin-bottom:.4rem; }
+.cal-head h2 { flex:1; margin:0; }
+/* Défilement horizontal continu : la bande déborde de la page, pas la page elle-même. */
+.cal-scroll { overflow-x:auto; overscroll-behavior-x:contain; padding-bottom:.6rem; margin-inline:calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding-inline:max(16px, env(safe-area-inset-left, 0px)); scroll-padding-inline:max(16px, env(safe-area-inset-left, 0px)); }
+.cal-strip { display:flex; gap:1rem; width:max-content; --col:clamp(6.8rem, 34vw, 9.5rem); }
+.cal-week { display:flex; flex-direction:column; gap:.4rem; }
+.cal-week h3 { margin:0; font-size:.85rem; color:var(--muted); position:sticky; left:0; width:max-content; text-transform:uppercase; letter-spacing:.04em; }
+.cal-week.current h3 { color:var(--accent); font-weight:700; }
+.cal-days { display:flex; gap:4px; }
+.cal-day { width:var(--col); background:var(--card); border:1px solid var(--line); border-radius:10px; padding:.4rem; display:flex; flex-direction:column; gap:.35rem; }
+.cal-day.weekend { background:var(--weekend); border-color:var(--weekend-line); }
+.cal-day.past { opacity:.6; }
+.cal-day.today { border:2px solid var(--accent); padding:calc(.4rem - 1px); opacity:1; }
+.cal-day-head { display:flex; align-items:baseline; gap:.35rem; }
+.cal-day-head .dow { text-transform:capitalize; color:var(--muted); font-size:.85rem; }
+.cal-day-head .num { font-size:1.3rem; font-weight:700; font-variant-numeric:tabular-nums; }
+.cal-day-head .mon { margin-left:auto; font-size:.75rem; color:var(--accent); font-weight:600; text-transform:uppercase; }
+.cal-slot { display:flex; flex-direction:column; align-items:flex-start; gap:.1rem; text-align:left; padding:.4rem .5rem; min-height:3.4rem; width:100%; border-radius:8px; background:var(--bg); }
+.cal-slot .slot-label { font-size:.7rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+.cal-slot .slot-meal { font-size:.85rem; line-height:1.25; overflow-wrap:anywhere; }
+.cal-slot.empty { border-style:dashed; color:var(--muted); }
+.cal-slot.empty .slot-meal { font-size:1.1rem; }
+.cal-slot.filled { border-color:var(--accent); }
+.cal-slot.filled.done { border-color:var(--line); color:var(--muted); }
 #plan-dialog form, #meal-dialog form { padding:.6rem; }
 #toast { position:fixed; inset:auto auto 1.2rem 50%; transform:translateX(-50%); margin:0; border:0; background:var(--fg); color:var(--bg); padding:.5rem 1rem; border-radius:99px; }
 #cal-day h3::first-letter { text-transform:uppercase; }
