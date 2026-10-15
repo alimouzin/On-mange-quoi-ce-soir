@@ -22,10 +22,20 @@ npm test
 
 | Variable | Rôle | Défaut |
 |---|---|---|
-| `APP_PASSWORD` | Mot de passe (authentification HTTP Basic, n'importe quel identifiant) | aucun → écoute **uniquement** sur 127.0.0.1 |
-| `PORT` / `HOST` | Port / interface d'écoute | `3000` / `0.0.0.0` si mot de passe |
+| `APP_PASSWORD` | Mot de passe optionnel (HTTP Basic, n'importe quel identifiant) | aucun |
+| `PORT` / `HOST` | Port / interface d'écoute | `3000` / `127.0.0.1` sans mot de passe, `0.0.0.0` avec |
 | `DATA_FILE` | Fichier de données JSON | `data/data.json` |
 
+## Auto-hébergement derrière Cloudflare
+
+Sans `APP_PASSWORD`, le site n'écoute que sur `127.0.0.1` : rien n'est joignable depuis le réseau local.
+Un tunnel Cloudflare lancé sur la même machine l'atteint sans problème, et la protection d'accès
+(Cloudflare Access) se règle côté Cloudflare :
+
+```bash
+npm start                                          # écoute sur 127.0.0.1:3000
+cloudflared tunnel --url http://localhost:3000     # ou un tunnel nommé vers http://localhost:3000
+```
+
+Pensez à créer une politique Cloudflare Access sur le nom de domaine, sinon le site est public.
 Les données sont dans un simple fichier JSON (`data/`, ignoré par git) : pensez à le sauvegarder.
-Pour un usage hors de la maison, placez le site derrière HTTPS (reverse proxy), car Basic Auth
-transmet le mot de passe en clair sans TLS.

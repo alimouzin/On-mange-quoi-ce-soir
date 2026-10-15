@@ -10,7 +10,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC = path.join(__dirname, 'public');
 const PORT = Number(process.env.PORT || 3000);
 const PASSWORD = process.env.APP_PASSWORD || '';
-// Sans mot de passe, on n'écoute qu'en local pour rester privé.
+// Sans mot de passe, on n'écoute qu'en local : un tunnel (cloudflared) sur la même machine suffit à l'atteindre.
 const HOST = process.env.HOST || (PASSWORD ? '0.0.0.0' : '127.0.0.1');
 const store = await new Store(process.env.DATA_FILE || path.join(__dirname, 'data', 'data.json')).load();
 
@@ -148,5 +148,5 @@ http
   })
   .listen(PORT, HOST, () => {
     console.log(`On mange quoi ce soir ? → http://${HOST}:${PORT}`);
-    if (!PASSWORD) console.warn('⚠ APP_PASSWORD non défini : accès limité à cette machine (127.0.0.1).');
+    if (!PASSWORD) console.log('Pas de mot de passe : accès protégé en amont (ex. Cloudflare Access). Ne pas exposer ce port directement.');
   });
