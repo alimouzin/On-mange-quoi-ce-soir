@@ -70,7 +70,7 @@ const names = (p) => p.meals.map((m) => m.name).join(' + ');
 async function loadSuggestion() {
   const slot = $('#slot-select').value;
   const keep = state.keep ? `&keep=${state.keep}` : '';
-  const data = await api(`suggest?slot=${slot}&exclude=${state.excluded.join(',')}${keep}`);
+  const data = await api(`suggest?slot=${slot}&exclude=${encodeURIComponent(state.excluded.join(','))}${keep}`);
   const forced = state.forced && [data.main, ...data.alternatives].find((x) => x?.key === state.forced);
   if (forced) {
     // Une alternative choisie passe en tête ; l'ancienne proposition reste proposée.
