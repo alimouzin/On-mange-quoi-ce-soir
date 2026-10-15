@@ -87,12 +87,20 @@
 
   <dialog id="plan-dialog">
     <form method="dialog" id="plan-form">
+      <p class="plan-when" id="plan-when"></p>
       <h2 id="plan-title">Planifier un repas</h2>
-      <label>Date <input type="date" name="date" required></label>
-      <label>Moment <select name="slot"></select></label>
-      <label>Plat <select name="main"></select></label>
-      <label>Accompagnement <select name="side"></select></label>
-      <p class="hint">Il sera ajouté automatiquement à la liste de courses.</p>
+      <div class="reels">
+        <div class="reel-col" id="col-main">
+          <div class="reel-title"><span>Plat</span><button type="button" id="spin-main" aria-label="Plat au hasard">🎲</button></div>
+          <div class="reel-wrap"><div class="reel" id="reel-main" tabindex="0" aria-label="Choix du plat"></div><div class="reel-band"></div></div>
+        </div>
+        <div class="reel-col" id="col-side">
+          <div class="reel-title"><span>Accompagnement</span><button type="button" id="spin-side" aria-label="Accompagnement au hasard">🎲</button></div>
+          <div class="reel-wrap"><div class="reel" id="reel-side" tabindex="0" aria-label="Choix de l'accompagnement"></div><div class="reel-band"></div></div>
+        </div>
+      </div>
+      <p class="hint" id="reel-note"></p>
+      <button type="button" id="spin-all" class="wide">🎲 Tout au hasard</button>
       <div class="row" id="plan-entry-actions" hidden>
         <button type="button" id="plan-eaten">✅ Mangé</button>
         <button type="button" id="plan-remove" class="danger">Retirer du calendrier</button>
@@ -101,6 +109,8 @@
         <button type="submit" class="primary">Enregistrer</button>
         <button type="button" id="plan-cancel">Annuler</button>
       </div>
+      <label class="unlock"><input type="checkbox" id="plan-unlock"> 🔓 Débloquer : inclure tous les repas, même ceux qui ne sont pas prévus pour ce moment</label>
+      <p class="hint">Le repas planifié est ajouté automatiquement à la liste de courses.</p>
     </form>
   </dialog>
 

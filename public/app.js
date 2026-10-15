@@ -282,41 +282,93 @@ scroller.addEventListener('scroll', () => {
 }, { passive: true });
 $('#cal-today').addEventListener('click', () => scrollToToday());
 
-// Planification d'un repas à une date
+// ---------- Roulettes (scroll vertical infini) ----------
+const ROW = () => parseFloat(getComputedStyle(document.documentElement).fontSize) * 3.6; // même hauteur que --row
+const COPIES = 5;
+
+/**
+ * Roulette verticale infinie : la liste est répétée 5 fois et on se recentre
+ * sur la copie du milieu quand le défilement s'arrête.
+ * items : [{ id, label, meta }] ; l'élément au centre est la sélection.
+ */
+function createReel(box, items, selectedId, onChange) {
+  const n = items.length;
+  box.replaceChildren();
+  box.dataset.count = n;
+  if (!n) return { value: () => null, spin() {}, items };
+  for (let c = 0; c < COPIES; c++)
+    items.forEach((it, i) => box.append(el('div', { className: 'reel-item', onclick: () => box.scrollTo({ top: (c * n + i) * ROW(), behavior: 'smooth' }) },
+      el('span', { className: 'ri-label' }, it.label), it.meta ? el('span', { className: 'ri-meta' }, it.meta) : null)));
+  const index = () => Math.round(box.scrollTop / ROW());
+  const value = () => items[((index() % n) + n) % n].id;
+  const jump = (idx) => { box.style.scrollSnapType = 'none'; box.scrollTop = idx * ROW(); box.style.scrollSnapType = ''; };
+  let timer;
+  box.onscroll = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const idx = index();
+      if (idx < n || idx >= (COPIES - 1) * n) jump(2 * n + (((idx % n) + n) % n));
+      onChange?.(value());
+    }, 140);
+  };
+  const start = Math.max(0, items.findIndex((it) => it.id === selectedId));
+  requestAnimationFrame(() => { jump(2 * n + start); onChange?.(value()); });
+  return {
+    value,
+    items,
+    spin() {
+      const target = Math.floor(Math.random() * n);
+      let idx = Math.floor(index() / n) * n + target;
+      while (idx <= index() + n) idx += n; // au moins un tour complet
+      if (idx >= COPIES * n) idx -= n;
+      box.scrollTo({ top: idx * ROW(), behavior: 'smooth' });
+    },
+  };
+}
+
+// ---------- Planification d'un repas à une date ----------
 const planDialog = $('#plan-dialog');
 const planForm = $('#plan-form');
-let editingEntry = null;
+const NONE = '__none__';
+const plan = { ctx: null, main: null, side: null };
 
-function fillSlots(selected) {
-  planForm.slot.replaceChildren(...slotsForDate(planForm.date.value).map((s) => el('option', { value: s.id, selected: s.id === selected }, s.label)));
-  fillMeals();
+const reelItem = (m) => ({ id: m.id, label: `${kindIcon[kindOf(m)]} ${m.name}`, meta: agoText(m.lastEaten) });
+
+function buildReels(keepMain, keepSide) {
+  const { slot } = plan.ctx;
+  const unlocked = $('#plan-unlock').checked;
+  const pool = (kinds) => state.meals
+    .filter((m) => kinds.includes(kindOf(m)) && (unlocked || m.slots.includes(slot)))
+    .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+  const mains = pool(['complet', 'viande']);
+  const sides = pool(['accompagnement']);
+  $('#reel-note').textContent = !mains.length
+    ? 'Aucun plat prévu pour ce moment. Débloque en bas pour voir tous les repas.'
+    : 'Seuls les repas prévus pour ce moment tournent. Un repas complet désactive l\'accompagnement.';
+  plan.main = createReel($('#reel-main'), mains.map(reelItem), keepMain, syncSide);
+  plan.side = createReel($('#reel-side'), [{ id: NONE, label: '— sans —', meta: '' }, ...sides.map(reelItem)], keepSide || NONE, null);
+  syncSide();
 }
 
-function mealOptions(select, kinds, current, optional) {
-  const slot = planForm.slot.value;
-  const list = state.meals.filter((m) => kinds.includes(kindOf(m))).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
-  const group = (label, items) => items.length ? el('optgroup', { label }, items.map((m) => el('option', { value: m.id, selected: m.id === current }, m.name))) : null;
-  select.replaceChildren(optional ? el('option', { value: '' }, '— aucun —') : null,
-    group('Adaptés à ce moment', list.filter((m) => m.slots.includes(slot))),
-    group('Autres', list.filter((m) => !m.slots.includes(slot))));
-}
-
-function fillMeals(meals = null) {
-  const cur = meals || [mealById(planForm.main.value), mealById(planForm.side.value)].filter(Boolean);
-  mealOptions(planForm.main, ['complet', 'viande'], (cur.find((m) => kindOf(m) !== 'accompagnement') || {}).id, false);
-  mealOptions(planForm.side, ['accompagnement'], (cur.find((m) => kindOf(m) === 'accompagnement') || {}).id, true);
+// Un repas complet à gauche désactive la roulette de droite.
+function syncSide() {
+  const main = mealById(plan.main?.value());
+  const off = !!main && kindOf(main) === 'complet';
+  $('#col-side').classList.toggle('disabled', off);
+  $('#spin-side').disabled = off;
 }
 
 function openPlanDialog({ date, slot, meals, entry = null }) {
   if (!state.meals.length) return toast("Ajoute d'abord des repas.");
-  editingEntry = entry;
+  const label = state.slots.find((s) => s.id === slot)?.label.split(' ').pop();
+  plan.ctx = { date, slot, entry };
+  $('#plan-when').textContent = `${fullDate(date)} · ${label}`;
   $('#plan-title').textContent = entry ? 'Repas planifié' : 'Planifier un repas';
   $('#plan-entry-actions').hidden = !entry;
   $('#plan-eaten').hidden = !!entry?.done;
-  planForm.date.value = date;
-  fillSlots(slot);
-  fillMeals(meals);
+  $('#plan-unlock').checked = meals.some((m) => !m.slots.includes(slot)); // un repas hors créneau reste affiché
   planDialog.showModal();
+  buildReels(meals.find((m) => kindOf(m) !== 'accompagnement')?.id, meals.find((m) => kindOf(m) === 'accompagnement')?.id);
 }
 
 async function afterPlanChange() {
@@ -325,18 +377,20 @@ async function afterPlanChange() {
   renderCalendar();
 }
 
-planForm.date.addEventListener('change', () => fillSlots());
-planForm.slot.addEventListener('change', () => fillMeals());
+$('#plan-unlock').addEventListener('change', () => buildReels(plan.main.value(), plan.side.value() === NONE ? null : plan.side.value()));
+$('#spin-main').addEventListener('click', () => plan.main.spin());
+$('#spin-side').addEventListener('click', () => plan.side.spin());
+$('#spin-all').addEventListener('click', () => { plan.main.spin(); if (!$('#col-side').classList.contains('disabled')) plan.side.spin(); });
 $('#plan-cancel').addEventListener('click', () => planDialog.close());
-$('#plan-eaten').addEventListener('click', async () => { await api(`planned/${editingEntry.id}/eaten`, 'POST', {}); toast('Noté comme mangé'); afterPlanChange(); });
-$('#plan-remove').addEventListener('click', async () => { await api(`planned/${editingEntry.id}`, 'DELETE'); afterPlanChange(); });
+$('#plan-eaten').addEventListener('click', async () => { await api(`planned/${plan.ctx.entry.id}/eaten`, 'POST', {}); toast('Noté comme mangé'); afterPlanChange(); });
+$('#plan-remove').addEventListener('click', async () => { await api(`planned/${plan.ctx.entry.id}`, 'DELETE'); afterPlanChange(); });
 planForm.addEventListener('submit', async (e) => {
   e.preventDefault();
+  const main = plan.main.value();
+  if (!main) return toast('Aucun plat à planifier.');
+  const side = $('#col-side').classList.contains('disabled') ? null : plan.side.value();
   try {
-    const body = { date: planForm.date.value, slot: planForm.slot.value, mealIds: [planForm.main.value, planForm.side.value].filter(Boolean) };
-    await api('planned', 'POST', body); // remplace l'éventuel repas du même créneau
-    const moved = editingEntry && (editingEntry.date !== body.date || editingEntry.slot !== body.slot);
-    if (moved) await api(`planned/${editingEntry.id}`, 'DELETE');
+    await api('planned', 'POST', { date: plan.ctx.date, slot: plan.ctx.slot, mealIds: [main, side && side !== NONE ? side : null].filter(Boolean) });
     toast('Planifié et ajouté aux courses');
     await afterPlanChange();
   } catch (err) { toast(err.message); }

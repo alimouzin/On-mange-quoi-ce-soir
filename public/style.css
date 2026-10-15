@@ -76,3 +76,25 @@ dialog { border:1px solid var(--line); border-radius:14px; background:var(--bg);
 #plan-dialog form, #meal-dialog form { padding:.6rem; }
 #toast { position:fixed; inset:auto auto 1.2rem 50%; transform:translateX(-50%); margin:0; border:0; background:var(--fg); color:var(--bg); padding:.5rem 1rem; border-radius:99px; }
 #cal-day h3::first-letter { text-transform:uppercase; }
+
+/* Roulettes de planification */
+#plan-dialog { --row:3.6rem; }
+.plan-when { margin:0; color:var(--accent); font-weight:600; text-transform:uppercase; letter-spacing:.04em; font-size:.85rem; }
+.plan-when::first-letter { text-transform:uppercase; }
+#plan-title { margin:.2rem 0 .6rem; }
+.reels { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:.6rem; }
+.reel-title { display:flex; justify-content:space-between; align-items:center; font-size:.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin-bottom:.3rem; }
+.reel-title button { padding:.1rem .5rem; }
+.reel-wrap { position:relative; height:calc(var(--row) * 3); border:1px solid var(--line); border-radius:12px; background:var(--card); overflow:hidden; }
+.reel { height:100%; overflow-y:auto; scroll-snap-type:y mandatory; scrollbar-width:none; padding-block:var(--row); overscroll-behavior:contain; -webkit-mask-image:linear-gradient(transparent, #000 30%, #000 70%, transparent); mask-image:linear-gradient(transparent, #000 30%, #000 70%, transparent); }
+.reel::-webkit-scrollbar { display:none; }
+.reel-item { height:var(--row); scroll-snap-align:center; scroll-snap-stop:always; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:0 .4rem; cursor:pointer; }
+.ri-label { font-weight:600; font-size:.92rem; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ri-meta { font-size:.72rem; color:var(--muted); }
+.reel-band { position:absolute; left:4px; right:4px; top:var(--row); height:var(--row); border:2px solid var(--accent); border-radius:10px; pointer-events:none; }
+.reel-col.disabled .reel { opacity:.25; overflow:hidden; pointer-events:none; }
+.reel-col.disabled .reel-band { border-style:dashed; border-color:var(--line); }
+button.wide { width:100%; margin-top:.6rem; }
+.unlock { font-weight:400; font-size:.88rem; color:var(--muted); display:flex; gap:.5rem; align-items:flex-start; }
+.unlock input { width:auto; margin-top:.25rem; }
+[hidden] { display:none !important; }
