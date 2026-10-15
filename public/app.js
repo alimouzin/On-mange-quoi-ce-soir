@@ -402,15 +402,21 @@ $('#reel-search').addEventListener('input', () => {
 });
 $('#reel-search').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });
 $('#plan-unlock').addEventListener('change', () => buildReels(plan.main.value(), plan.side.value()));
-function spinWeighted() {
-  const pick = (reel) => reel.spin(drawIndex(reel.items.map((it) => mealById(it.id)).filter(Boolean)));
-  pick(plan.main);
-  if (!$('#col-side').classList.contains('disabled') && plan.side.items.length) pick(plan.side);
+// Tire d'abord le plat, puis l'accompagnement seulement si le plat tiré n'est pas un repas complet
+// (l'état de la roulette de droite ne change qu'à la fin de l'animation, on ne peut pas s'y fier).
+function spinBoth(pickIndex) {
+  if (!plan.main.items.length) return;
+  const mi = pickIndex(plan.main.items);
+  plan.main.spin(mi);
+  const main = mealById(plan.main.items[mi].id);
+  if (main && kindOf(main) !== 'complet' && plan.side.items.length) plan.side.spin(pickIndex(plan.side.items));
 }
-$('#spin-weighted').addEventListener('click', spinWeighted);
+const uniformIndex = (items) => Math.floor(Math.random() * items.length);
+const weightedIndex = (items) => drawIndex(items.map((it) => mealById(it.id)));
+$('#spin-weighted').addEventListener('click', () => spinBoth(weightedIndex));
 $('#spin-main').addEventListener('click', () => plan.main.spin());
 $('#spin-side').addEventListener('click', () => plan.side.spin());
-$('#spin-all').addEventListener('click', () => { plan.main.spin(); if (!$('#col-side').classList.contains('disabled')) plan.side.spin(); });
+$('#spin-all').addEventListener('click', () => spinBoth(uniformIndex));
 $('#plan-cancel').addEventListener('click', () => planDialog.close());
 $('#plan-remove').addEventListener('click', async () => { await api(`planned/${plan.ctx.entry.id}`, 'DELETE'); afterPlanChange(); });
 
