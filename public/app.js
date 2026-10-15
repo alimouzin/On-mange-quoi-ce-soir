@@ -97,12 +97,27 @@ $('#kind-filter').addEventListener('change', renderMeals);
 const dialog = $('#meal-dialog');
 const form = $('#meal-form');
 
+// Entrée dans un ingrédient : nom → quantité → ingrédient suivant (une ligne vide n'est jamais ajoutée).
 function addIngredientRow(ing = { name: '', qty: '' }) {
-  $('#ingredients').append(el('div', { className: 'ing-row' },
-    el('input', { placeholder: 'Ingrédient', value: ing.name, name: 'ing-name' }),
-    el('input', { placeholder: 'Quantité (ex. 500 g)', value: ing.qty, name: 'ing-qty' }),
-    el('button', { type: 'button', title: 'Retirer', onclick: (e) => e.target.parentElement.remove() }, '✕'),
-  ));
+  const name = el('input', { placeholder: 'Ingrédient', value: ing.name, name: 'ing-name', enterKeyHint: 'next' });
+  const qty = el('input', { placeholder: 'Quantité (ex. 500 g)', value: ing.qty, name: 'ing-qty', enterKeyHint: 'next' });
+  const row = el('div', { className: 'ing-row' }, name, qty,
+    el('button', { type: 'button', title: 'Retirer', onclick: () => row.remove() }, '✕'));
+  name.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault(); // ne pas envoyer tout le formulaire
+    if (name.value.trim()) qty.focus();
+  });
+  qty.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    if (!name.value.trim()) return name.focus();
+    const next = row.nextElementSibling;
+    if (next) next.querySelector('input').focus();
+    else addIngredientRow().querySelector('input').focus();
+  });
+  $('#ingredients').append(row);
+  return row;
 }
 
 function openDialog(meal) {
