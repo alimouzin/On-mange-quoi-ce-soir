@@ -3,7 +3,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID, timingSafeEqual, createHash } from 'node:crypto';
-import { SLOTS, KINDS, SEASONS, currentSlot, suggest, buildShoppingList, sanitizeMeal, sanitizePlanned, shoppingMealIds, localDate } from './lib/logic.js';
+import { SLOTS, KINDS, SEASONS, buildShoppingList, sanitizeMeal, sanitizePlanned, shoppingMealIds, localDate } from './lib/logic.js';
 import { Store } from './lib/store.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -57,7 +57,7 @@ async function api(req, res, url) {
   const [resource, id, action] = parts;
   const m = req.method;
 
-  if (resource === 'slots' && m === 'GET') return send(res, 200, { slots: SLOTS, kinds: KINDS, seasons: SEASONS, current: currentSlot() });
+  if (resource === 'slots' && m === 'GET') return send(res, 200, { slots: SLOTS, kinds: KINDS, seasons: SEASONS });
 
   if (resource === 'meals') {
     if (!id && m === 'GET') return send(res, 200, { meals });
@@ -88,13 +88,6 @@ async function api(req, res, url) {
       await store.save();
       return send(res, 200, meals[idx]);
     }
-  }
-
-  if (resource === 'suggest' && m === 'GET') {
-    const slot = url.searchParams.get('slot') || currentSlot();
-    const excludeKeys = (url.searchParams.get('exclude') || '').split(',').filter(Boolean);
-    const keepId = url.searchParams.get('keep') || null;
-    return send(res, 200, { slot, ...suggest(meals, slot, { excludeKeys, keepId }) });
   }
 
   if (resource === 'planned') {
@@ -151,9 +144,11 @@ async function api(req, res, url) {
 }
 
 async function serveStatic(res, pathname) {
+  // lib/logic.js est partagé entre le serveur et le navigateur.
+  const shared = pathname === '/lib/logic.js';
   const rel = pathname === '/' ? 'index.html' : pathname.slice(1);
-  const file = path.normalize(path.join(PUBLIC, rel));
-  if (!file.startsWith(PUBLIC + path.sep)) return send(res, 403, { error: 'Interdit' });
+  const file = shared ? path.join(__dirname, 'lib', 'logic.js') : path.normalize(path.join(PUBLIC, rel));
+  if (!shared && !file.startsWith(PUBLIC + path.sep)) return send(res, 403, { error: 'Interdit' });
   try {
     const body = await fs.readFile(file);
     res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream' });

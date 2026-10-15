@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { seasonOf, inSeason, suggest, buildShoppingList, sanitizeMeal, currentSlot, sanitizePlanned, shoppingMealIds, slotsForDate, nextDateForSlot, localDate } from '../lib/logic.js';
+import { seasonOf, inSeason, drawIndex, buildShoppingList, sanitizeMeal, sanitizePlanned, shoppingMealIds, slotsForDate, nextDateForSlot, localDate } from '../lib/logic.js';
 
 const now = new Date('2026-10-14T12:00:00');
 const meals = [
@@ -8,22 +8,6 @@ const meals = [
   { id: 'b', name: 'Pizza', slots: ['lun-soir'], lastEaten: '2026-08-01', ingredients: [{ name: 'pates', qty: '250 g' }, { name: 'Tomates', qty: '2' }] },
   { id: 'c', name: 'Brunch', slots: ['dim-midi'], lastEaten: null, ingredients: [] },
 ];
-
-test('suggère le repas le plus ancien parmi ceux du créneau', () => {
-  const r = suggest(meals, 'lun-soir', { now, random: () => 0.5 });
-  assert.equal(r.main.meals[0].id, 'b');
-  assert.equal(r.alternatives[0].meals[0].id, 'a');
-});
-
-test('ignore les repas hors créneau et les exclus', () => {
-  assert.equal(suggest(meals, 'mar-soir', { now }).main, null);
-  assert.equal(suggest(meals, 'lun-soir', { now, excludeKeys: ['b', 'a'] }).main, null);
-});
-
-test('un repas jamais mangé passe en premier', () => {
-  const r = suggest([...meals, { id: 'd', name: 'Neuf', slots: ['lun-soir'], lastEaten: null, ingredients: [] }], 'lun-soir', { now, random: () => 0.5 });
-  assert.equal(r.main.meals[0].id, 'd');
-});
 
 test('fusionne les ingrédients et additionne les quantités', () => {
   const list = buildShoppingList(meals, ['a', 'b']);
@@ -40,37 +24,6 @@ test('sanitizeMeal valide les entrées', () => {
   assert.deepEqual(m.slots, ['lun-soir']);
   assert.equal(m.ingredients.length, 1);
   assert.equal(m.lastEaten, null);
-});
-
-test('créneau courant : midi le week-end avant 15h', () => {
-  assert.equal(currentSlot(new Date('2026-10-17T11:00:00')), 'sam-midi');
-  assert.equal(currentSlot(new Date('2026-10-17T18:00:00')), 'sam-soir');
-  assert.equal(currentSlot(new Date('2026-10-14T11:00:00')), 'mer-soir');
-});
-
-test('mix & match : viande + accompagnement, avec exclusion et garde', () => {
-  const duo = [
-    { id: 'v1', name: 'Poulet', kind: 'viande', slots: ['mer-soir'], lastEaten: '2026-01-01', ingredients: [] },
-    { id: 'v2', name: 'Steak', kind: 'viande', slots: ['mer-soir'], lastEaten: '2026-10-10', ingredients: [] },
-    { id: 'a1', name: 'Riz', kind: 'accompagnement', slots: ['mer-soir'], lastEaten: '2026-02-01', ingredients: [] },
-    { id: 'a2', name: 'Frites', kind: 'accompagnement', slots: ['mer-soir', 'lun-soir'], lastEaten: '2026-10-11', ingredients: [] },
-  ];
-  const o = { now, random: () => 0.5 };
-  assert.equal(suggest(duo, 'mer-soir', o).main.key, 'v1+a1');
-  assert.equal(suggest(duo, 'mer-soir', { ...o, excludeKeys: ['v1+a1'] }).main.key, 'v2+a1');
-  const keep = suggest(duo, 'mer-soir', { ...o, excludeKeys: ['v1+a1', 'v2+a1'], keepId: 'a2' });
-  assert.equal(keep.main.key, 'v1+a2');
-  assert.ok(keep.alternatives.every((p) => p.meals.some((m) => m.id === 'a2')));
-  assert.equal(suggest(duo, 'lun-soir', o).main, null); // pas de viande pour ce créneau
-});
-
-test('un repas complet peut concurrencer un duo', () => {
-  const list = [
-    { id: 'c', name: 'Lasagnes', slots: ['mer-soir'], lastEaten: null, ingredients: [] },
-    { id: 'v', name: 'Poulet', kind: 'viande', slots: ['mer-soir'], lastEaten: '2026-10-13', ingredients: [] },
-    { id: 'a', name: 'Riz', kind: 'accompagnement', slots: ['mer-soir'], lastEaten: '2026-10-13', ingredients: [] },
-  ];
-  assert.equal(suggest(list, 'mer-soir', { now, random: () => 0.5 }).main.key, 'c');
 });
 
 test('sanitizeMeal : type par défaut et invalide', () => {
@@ -124,12 +77,19 @@ test('saisons : mois, repas toute l\'année ou limité', () => {
   assert.deepEqual(sanitizeMeal({ name: 'X', seasons: ['ete', 'hiver', 'automne', 'printemps'] }).seasons, []);
 });
 
-test('suggestion : un repas hors saison est exclu', () => {
+
+test('tirage pondéré : favorise les repas anciens, reste dans la liste', () => {
   const list = [
-    { id: 'raclette', name: 'Raclette', slots: ['mer-soir'], seasons: ['hiver'], lastEaten: null, ingredients: [] },
-    { id: 'salade', name: 'Salade', slots: ['mer-soir'], seasons: ['ete'], lastEaten: null, ingredients: [] },
-    { id: 'toute', name: 'Pâtes', slots: ['mer-soir'], lastEaten: '2026-10-13', ingredients: [] },
+    { id: 'recent', lastEaten: '2026-10-13' }, // 1 jour
+    { id: 'ancien', lastEaten: '2026-06-01' }, // plafonné à 60
+    { id: 'jamais', lastEaten: null }, // 90
   ];
-  const keys = [suggest(list, 'mer-soir', { now, random: () => 0.5 }).main, ...suggest(list, 'mer-soir', { now, random: () => 0.5 }).alternatives].map((p) => p.key);
-  assert.deepEqual(keys, ['toute']); // now = 14 octobre : automne
+  assert.equal(drawIndex(list, { now, random: () => 0 }), 0);
+  assert.equal(drawIndex(list, { now, random: () => 0.2 }), 1);
+  assert.equal(drawIndex(list, { now, random: () => 0.5 }), 2);
+  assert.equal(drawIndex(list, { now, random: () => 0.99 }), 2);
+  assert.equal(drawIndex(list, { now, random: () => 1 }), 2);
+  const counts = [0, 0, 0];
+  for (let i = 0; i < 3000; i++) counts[drawIndex(list, { now })]++;
+  assert.ok(counts[2] > counts[1] && counts[1] > counts[0] * 5);
 });

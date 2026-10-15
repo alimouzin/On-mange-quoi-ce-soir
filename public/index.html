@@ -5,28 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
   <title>On mange quoi ce soir ?</title>
+  <link rel="icon" href="data:,">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header>
     <h1>🍽️ On mange quoi ce soir ?</h1>
     <nav>
-      <button data-tab="choose" class="active">Choisir</button>
-      <button data-tab="calendar">Calendrier</button>
+      <button data-tab="calendar" class="active">Calendrier</button>
       <button data-tab="meals">Repas</button>
       <button data-tab="shopping">Courses <span id="cart-count" hidden></span></button>
     </nav>
   </header>
 
   <main>
-    <section id="tab-choose">
-      <label>Pour quel moment ?
-        <select id="slot-select"></select>
-      </label>
-      <div id="suggestion"></div>
-    </section>
-
-    <section id="tab-calendar" hidden>
+    <section id="tab-calendar">
       <div class="cal-head">
         <h2>Semaines</h2>
         <button id="cal-today">Aujourd'hui</button>
@@ -104,13 +97,16 @@
         </div>
       </div>
       <p class="hint" id="reel-note"></p>
-      <button type="button" id="spin-all" class="wide">🎲 Tout au hasard</button>
+      <div class="spins">
+        <button type="button" id="spin-all">🎲 Tout au hasard</button>
+        <button type="button" id="spin-weighted" title="Favorise les repas qu'on n'a pas mangés depuis longtemps">✨ Surprends-moi</button>
+      </div>
       <div class="row" id="plan-entry-actions" hidden>
-        <button type="button" id="plan-eaten">✅ Mangé</button>
         <button type="button" id="plan-remove" class="danger">Retirer du calendrier</button>
       </div>
       <div class="row">
         <button type="submit" class="primary">Enregistrer</button>
+        <button type="button" id="plan-save-eaten" hidden>✅ Mangé</button>
         <button type="button" id="plan-cancel">Annuler</button>
       </div>
       <label class="unlock"><input type="checkbox" id="plan-unlock"> 🔓 Débloquer : inclure tous les repas, même hors moment ou hors saison</label>

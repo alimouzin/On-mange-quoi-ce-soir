@@ -6,9 +6,7 @@ Site privé pour garder une liste d'idées de repas, choisir quoi manger et pré
 
 - **Repas** : type (repas complet, viande ou accompagnement), nom, ingrédients (avec quantités), date de dernière fois mangé, notes et moments adaptés
   (tous les soirs + samedi midi + dimanche midi).
-- **Choisir** : propose un repas adapté au moment choisi (par défaut le prochain) : un repas complet ou un duo **viande + accompagnement** combiné automatiquement, en favorisant ceux
-  qu'on n'a pas mangés depuis longtemps ou jamais. « Autre idée », « Autre viande » / « Autre accompagnement » (on garde l'un et on change l'autre), « On mange ça ! » (met à jour la date).
-- **Calendrier** : vue par semaines à défilement horizontal continu (week-ends sur fond distinct) des repas planifiés (une date + un moment, plat et accompagnement optionnel). Un repas planifié est ajouté automatiquement aux courses tant qu'il est à venir et pas marqué « mangé » ; « Mangé » met à jour sa date de dernière fois.
+- **Calendrier** (page d'accueil) : vue par semaines à défilement horizontal continu (week-ends sur fond distinct) des repas planifiés (une date + un moment, plat et accompagnement optionnel). Toucher un « + » ouvre deux roulettes verticales infinies (plat à gauche, accompagnement à droite ; un repas complet désactive la seconde) qui ne contiennent que les repas possibles pour ce moment et cette saison. « Tout au hasard » tire à égalité, « Surprends-moi » favorise les repas pas mangés depuis longtemps, « Mangé » enregistre le repas comme mangé (aujourd'hui ou passé). Un repas planifié est ajouté automatiquement aux courses tant qu'il est à venir et pas marqué « mangé » ; « Mangé » met à jour sa date de dernière fois.
 - **Courses** : on coche les repas prévus, la liste est fusionnée (quantités additionnées quand l'unité
   est la même), avec cases à cocher persistantes et bouton « Copier la liste ».
 
