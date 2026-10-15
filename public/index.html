@@ -68,6 +68,10 @@
         <select name="kind"></select>
       </label>
       <fieldset>
+        <legend>Saison (rien de coché : toute l'année)</legend>
+        <div id="season-checks" class="checks"></div>
+      </fieldset>
+      <fieldset>
         <legend>Moments adaptés</legend>
         <div id="slot-checks" class="checks"></div>
       </fieldset>
@@ -109,7 +113,7 @@
         <button type="submit" class="primary">Enregistrer</button>
         <button type="button" id="plan-cancel">Annuler</button>
       </div>
-      <label class="unlock"><input type="checkbox" id="plan-unlock"> 🔓 Débloquer : inclure tous les repas, même ceux qui ne sont pas prévus pour ce moment</label>
+      <label class="unlock"><input type="checkbox" id="plan-unlock"> 🔓 Débloquer : inclure tous les repas, même hors moment ou hors saison</label>
       <p class="hint">Le repas planifié est ajouté automatiquement à la liste de courses.</p>
     </form>
   </dialog>

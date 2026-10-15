@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { suggest, buildShoppingList, sanitizeMeal, currentSlot, sanitizePlanned, shoppingMealIds, slotsForDate, nextDateForSlot, localDate } from '../lib/logic.js';
+import { seasonOf, inSeason, suggest, buildShoppingList, sanitizeMeal, currentSlot, sanitizePlanned, shoppingMealIds, slotsForDate, nextDateForSlot, localDate } from '../lib/logic.js';
 
 const now = new Date('2026-10-14T12:00:00');
 const meals = [
@@ -110,4 +110,26 @@ test('repas sans ingrédient : le plat lui-même est un article à acheter', () 
   assert.ok(brunch && brunch.whole);
   assert.deepEqual(brunch.meals, ['Brunch']);
   assert.ok(!list.find((i) => i.name === 'Pâtes').whole);
+});
+
+test('saisons : mois, repas toute l\'année ou limité', () => {
+  assert.equal(seasonOf(new Date(2026, 0, 15)), 'hiver');
+  assert.equal(seasonOf('2026-04-02'), 'printemps');
+  assert.equal(seasonOf('2026-07-14'), 'ete');
+  assert.equal(seasonOf(new Date(2026, 9, 14)), 'automne');
+  assert.ok(inSeason({ seasons: [] }, new Date(2026, 6, 1)));
+  assert.ok(inSeason({}, new Date(2026, 6, 1)));
+  assert.ok(!inSeason({ seasons: ['hiver'] }, new Date(2026, 6, 1)));
+  assert.deepEqual(sanitizeMeal({ name: 'X', seasons: ['ete', 'bidon'] }).seasons, ['ete']);
+  assert.deepEqual(sanitizeMeal({ name: 'X', seasons: ['ete', 'hiver', 'automne', 'printemps'] }).seasons, []);
+});
+
+test('suggestion : un repas hors saison est exclu', () => {
+  const list = [
+    { id: 'raclette', name: 'Raclette', slots: ['mer-soir'], seasons: ['hiver'], lastEaten: null, ingredients: [] },
+    { id: 'salade', name: 'Salade', slots: ['mer-soir'], seasons: ['ete'], lastEaten: null, ingredients: [] },
+    { id: 'toute', name: 'Pâtes', slots: ['mer-soir'], lastEaten: '2026-10-13', ingredients: [] },
+  ];
+  const keys = [suggest(list, 'mer-soir', { now, random: () => 0.5 }).main, ...suggest(list, 'mer-soir', { now, random: () => 0.5 }).alternatives].map((p) => p.key);
+  assert.deepEqual(keys, ['toute']); // now = 14 octobre : automne
 });

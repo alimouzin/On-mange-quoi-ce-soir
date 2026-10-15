@@ -23,8 +23,11 @@ async function api(path, method = 'GET', body) {
   return res.status === 204 ? null : res.json();
 }
 
-const state = { slots: [], kinds: [], meals: [], plan: [], planned: [], cal: { y: new Date().getFullYear(), m: new Date().getMonth(), sel: null }, editing: null, excluded: [], forced: null, keep: null };
+const state = { slots: [], kinds: [], seasons: [], meals: [], plan: [], planned: [], cal: { y: new Date().getFullYear(), m: new Date().getMonth(), sel: null }, editing: null, excluded: [], forced: null, keep: null };
 const slotLabel = (id) => state.slots.find((s) => s.id === id)?.label || id;
+const SEASON_BY_MONTH = ['hiver', 'hiver', 'printemps', 'printemps', 'printemps', 'ete', 'ete', 'ete', 'automne', 'automne', 'automne', 'hiver'];
+const mealInSeason = (m, date) => !m.seasons?.length || m.seasons.includes(SEASON_BY_MONTH[parse(date).getMonth()]);
+const seasonLabel = (id) => state.seasons.find((s) => s.id === id)?.label || id;
 const kindOf = (m) => m.kind || 'complet';
 const pad = (n) => String(n).padStart(2, '0');
 const isoDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -133,7 +136,7 @@ function renderMeals() {
     list.append(el('li', {},
       el('strong', {}, `${kindIcon[kindOf(m)]} ${m.name}`),
       el('div', { className: 'meta' }, `${kindLabel(kindOf(m))} · ${agoText(m.lastEaten)}`),
-      el('div', { className: 'tags' }, m.slots.map((s) => el('span', {}, slotLabel(s)))),
+      el('div', { className: 'tags' }, m.seasons?.length ? el('span', { className: 'season' }, m.seasons.map(seasonLabel).join(' · ')) : null, m.slots.map((s) => el('span', {}, slotLabel(s)))),
       m.ingredients.length ? el('div', { className: 'meta' }, m.ingredients.map((i) => i.name).join(', ')) : null,
       el('div', { className: 'actions' },
         el('button', { onclick: async () => { await api(`meals/${m.id}/eaten`, 'POST', {}); await refreshMeals(); renderMeals(); } }, 'Mangé aujourd\'hui'),
@@ -165,6 +168,8 @@ function openDialog(meal) {
   form.kind.value = meal ? kindOf(meal) : 'complet';
   form.lastEaten.value = meal?.lastEaten || '';
   form.notes.value = meal?.notes || '';
+  $('#season-checks').replaceChildren(...state.seasons.map((s) =>
+    el('label', {}, el('input', { type: 'checkbox', value: s.id, checked: !!meal?.seasons?.includes(s.id) }), s.label)));
   $('#slot-checks').replaceChildren(...state.slots.map((s) =>
     el('label', {}, el('input', { type: 'checkbox', value: s.id, checked: meal ? meal.slots.includes(s.id) : false }), s.label)));
   $('#ingredients').replaceChildren();
@@ -183,6 +188,7 @@ form.addEventListener('submit', async (e) => {
     lastEaten: form.lastEaten.value,
     notes: form.notes.value,
     slots: [...document.querySelectorAll('#slot-checks input:checked')].map((i) => i.value),
+    seasons: [...document.querySelectorAll('#season-checks input:checked')].map((i) => i.value),
     ingredients: [...document.querySelectorAll('.ing-row')].map((r) => ({ name: r.children[0].value, qty: r.children[1].value })),
   };
   try {
@@ -329,24 +335,25 @@ function createReel(box, items, selectedId, onChange) {
 // ---------- Planification d'un repas à une date ----------
 const planDialog = $('#plan-dialog');
 const planForm = $('#plan-form');
-const NONE = '__none__';
 const plan = { ctx: null, main: null, side: null };
 
 const reelItem = (m) => ({ id: m.id, label: `${kindIcon[kindOf(m)]} ${m.name}`, meta: agoText(m.lastEaten) });
 
 function buildReels(keepMain, keepSide) {
-  const { slot } = plan.ctx;
+  const { slot, date } = plan.ctx;
   const unlocked = $('#plan-unlock').checked;
   const pool = (kinds) => state.meals
-    .filter((m) => kinds.includes(kindOf(m)) && (unlocked || m.slots.includes(slot)))
+    .filter((m) => kinds.includes(kindOf(m)) && (unlocked || (m.slots.includes(slot) && mealInSeason(m, date))))
     .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
   const mains = pool(['complet', 'viande']);
   const sides = pool(['accompagnement']);
   $('#reel-note').textContent = !mains.length
-    ? 'Aucun plat prévu pour ce moment. Débloque en bas pour voir tous les repas.'
-    : 'Seuls les repas prévus pour ce moment tournent. Un repas complet désactive l\'accompagnement.';
+    ? 'Aucun plat prévu pour ce moment et cette saison. Débloque en bas pour voir tous les repas.'
+    : 'Seuls les repas prévus pour ce moment et cette saison tournent. Un repas complet désactive l\'accompagnement.';
   plan.main = createReel($('#reel-main'), mains.map(reelItem), keepMain, syncSide);
-  plan.side = createReel($('#reel-side'), [{ id: NONE, label: '— sans —', meta: '' }, ...sides.map(reelItem)], keepSide || NONE, null);
+  // Pas de « sans » : une viande doit toujours avoir son accompagnement.
+  plan.side = createReel($('#reel-side'), sides.map(reelItem), keepSide, null);
+  if (!sides.length) $('#reel-side').append(el('p', { className: 'reel-empty' }, 'Aucun accompagnement pour ce moment'));
   syncSide();
 }
 
@@ -366,7 +373,7 @@ function openPlanDialog({ date, slot, meals, entry = null }) {
   $('#plan-title').textContent = entry ? 'Repas planifié' : 'Planifier un repas';
   $('#plan-entry-actions').hidden = !entry;
   $('#plan-eaten').hidden = !!entry?.done;
-  $('#plan-unlock').checked = meals.some((m) => !m.slots.includes(slot)); // un repas hors créneau reste affiché
+  $('#plan-unlock').checked = meals.some((m) => !m.slots.includes(slot) || !mealInSeason(m, date)); // un repas planifié hors cadre reste affiché
   planDialog.showModal();
   buildReels(meals.find((m) => kindOf(m) !== 'accompagnement')?.id, meals.find((m) => kindOf(m) === 'accompagnement')?.id);
 }
@@ -377,7 +384,7 @@ async function afterPlanChange() {
   renderCalendar();
 }
 
-$('#plan-unlock').addEventListener('change', () => buildReels(plan.main.value(), plan.side.value() === NONE ? null : plan.side.value()));
+$('#plan-unlock').addEventListener('change', () => buildReels(plan.main.value(), plan.side.value()));
 $('#spin-main').addEventListener('click', () => plan.main.spin());
 $('#spin-side').addEventListener('click', () => plan.side.spin());
 $('#spin-all').addEventListener('click', () => { plan.main.spin(); if (!$('#col-side').classList.contains('disabled')) plan.side.spin(); });
@@ -390,7 +397,7 @@ planForm.addEventListener('submit', async (e) => {
   if (!main) return toast('Aucun plat à planifier.');
   const side = $('#col-side').classList.contains('disabled') ? null : plan.side.value();
   try {
-    await api('planned', 'POST', { date: plan.ctx.date, slot: plan.ctx.slot, mealIds: [main, side && side !== NONE ? side : null].filter(Boolean) });
+    await api('planned', 'POST', { date: plan.ctx.date, slot: plan.ctx.slot, mealIds: [main, side].filter(Boolean) });
     toast('Planifié et ajouté aux courses');
     await afterPlanChange();
   } catch (err) { toast(err.message); }
@@ -462,8 +469,9 @@ $('#clear-plan').addEventListener('click', async () => {
 
 // ---------- Démarrage ----------
 (async () => {
-  const { slots, kinds, current } = await api('slots');
+  const { slots, kinds, seasons, current } = await api('slots');
   state.slots = slots;
+  state.seasons = seasons;
   state.kinds = kinds;
   for (const sel of [form.kind, $('#kind-filter')]) sel.append(...kinds.map((k) => el('option', { value: k.id }, k.label)));
   $('#slot-select').replaceChildren(...slots.map((s) => el('option', { value: s.id, selected: s.id === current }, s.label)));

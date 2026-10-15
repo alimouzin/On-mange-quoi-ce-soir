@@ -98,3 +98,5 @@ button.wide { width:100%; margin-top:.6rem; }
 .unlock { font-weight:400; font-size:.88rem; color:var(--muted); display:flex; gap:.5rem; align-items:flex-start; }
 .unlock input { width:auto; margin-top:.25rem; }
 [hidden] { display:none !important; }
+.tags span.season { background:color-mix(in srgb, var(--accent) 22%, var(--card)); }
+.reel-empty { padding:1rem .5rem; text-align:center; color:var(--muted); font-size:.85rem; }
